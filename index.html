@@ -403,7 +403,7 @@ async function saveCust(c){
   const {error}=await sb.from('musteriler').upsert({id:c.id,data:o,updated_at:o.updated},{onConflict:'id'});
   if(error){toast('Saxlamaq alınmadı — interneti yoxlayın');throw error}
 }
-const getC=id=>{const c=custs.find(x=>x.id===id);return c?JSON.parse(JSON.stringify(plain(c))):null};
+const getC=id=>{const c=custs.find(x=>x.id===id);if(!c)return null;const o=JSON.parse(JSON.stringify(plain(c)));o.id=id;return o};
 
 /* ---------- job form ---------- */
 let jCust=null,jEdit=null;
