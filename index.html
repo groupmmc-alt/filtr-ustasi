@@ -116,6 +116,8 @@ label{display:grid;gap:4px;font-size:14px;color:var(--mute)}
 #auth h1{color:var(--sea2)}#auth p{margin:0;color:var(--mute);font-size:14.5px}
 #auth .err{color:var(--warn);font-size:14px;min-height:1em}
 #auth .lnk{background:none;border:0;color:var(--sea2);font:inherit;font-size:14px;cursor:pointer;text-decoration:underline;padding:4px}
+.cerr{color:var(--warn);font-size:13.5px;font-weight:600}
+input.bad{border:2px solid var(--warn)}
 .mig{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;margin-top:10px}
 @media(prefers-reduced-motion:reduce){.toast{transition:none}}
 </style>
@@ -176,7 +178,7 @@ label{display:grid;gap:4px;font-size:14px;color:var(--mute)}
   <label>Aparat / model<input id="jModel" autocomplete="off" placeholder="məs. Qapalı 5 pilləli, Robben"></label>
   <div class="row">
     <label>Müştəri ödədi / qiymət (₼)<input id="jPrice" type="number" min="0" step="0.5" inputmode="decimal"></label>
-    <label>Material mayası (₼)<input id="jCost" type="number" min="0" step="0.5" inputmode="decimal" placeholder="sizə neçəyə başa gəldi"></label>
+    <label>Material mayası (₼) *<input id="jCost" type="number" min="0" step="0.5" inputmode="decimal" placeholder="yoxdursa 0 yazın"><span id="jCostErr" class="cerr" hidden>Material mayasını yazmamısınız! Mütləq qeyd edin (material yoxdursa 0 yazın).</span></label>
   </div>
   <label id="jPayL">Ödəniş<select id="jPay"><option value="nagd">Ödənildi</option><option value="borc">Borc qaldı</option></select></label>
   <div class="row3" id="jCred" hidden>
@@ -431,7 +433,7 @@ function openJob(cid,job){
   $('jPhone').value=jCust?.phone||'';$('jName').value=jCust?.name||'';$('jAddr').value=jCust?.addr||'';$('jFound').hidden=true;
   $('jDate').value=job?.date||today();$('jType').value=job?.type||'Kartric dəyişmə';
   chipsParts(job?.parts||[]);$('jModel').value=job?.model||jCust?.jobs?.find(j=>j.model)?.model||'';
-  $('jPrice').value=job?.price??'';$('jCost').value=job?.cost??'';$('jPay').value=job?.pay==='borc'?'borc':'nagd';
+  $('jPrice').value=job?.price??'';$('jCost').value=job?.cost??'';$('jCostErr').hidden=true;$('jCost').classList.remove('bad');$('jPay').value=job?.pay==='borc'?'borc':'nagd';
   $('jNext').value=job?(job.next||''):addMonths($('jDate').value,6);$('jNote').value=job?.note||'';
   $('jDel').hidden=!job;$('jDel').textContent='Sil';payUI();setNextChip();
   $('dJob').showModal();setTimeout(()=>(jCust?$('jPrice'):$('jPhone')).focus(),60);
@@ -443,7 +445,9 @@ $('jParts').addEventListener('click',e=>{const b=e.target.closest('.chip');if(b)
 $('jNextC').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;$('jNext').value=b.dataset.m==='0'?'':addMonths($('jDate').value||today(),+b.dataset.m);setNextChip()});
 $('jDate').addEventListener('change',()=>{if(!jEdit&&$('jNext').value)$('jNext').value=addMonths($('jDate').value,6);setNextChip()});
 $('jNext').addEventListener('change',setNextChip);
+$('jCost').addEventListener('input',()=>{$('jCostErr').hidden=true;$('jCost').classList.remove('bad')});
 $('fJob').addEventListener('submit',async e=>{e.preventDefault();
+  if($('jCost').value.trim()===''){$('jCostErr').hidden=false;$('jCost').classList.add('bad');$('jCost').scrollIntoView({block:'center'});$('jCost').focus();toast('Material mayasını yazmamısınız — yadda saxlanılmadı');return}
   let c=jCust;
   if(!c){const k=pkey($('jPhone').value);const ex=k&&custs.find(x=>pkey(x.phone)===k||pkey(x.phone2)===k);
     c=ex?getC(ex.id):{id:'c'+(k||uid()),name:$('jName').value.trim(),phone:fmtP($('jPhone').value),addr:$('jAddr').value.trim(),jobs:[],plan:[]};
