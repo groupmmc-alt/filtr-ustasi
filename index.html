@@ -111,7 +111,7 @@ label{display:grid;gap:4px;font-size:14px;color:var(--mute)}
 .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
 .hb{display:flex;gap:6px;flex-wrap:wrap}.hb .btn{background:rgb(255 255 255/.15);color:#fff;height:36px;font-size:13.5px;padding:0 12px}
 #auth{position:fixed;inset:0;background:var(--sea);z-index:50;display:grid;place-items:center;padding:16px;overflow:auto}
-#auth[hidden]{display:none}
+#auth[hidden],#lock[hidden],.btn[hidden]{display:none}
 #auth .box{background:var(--card);color:var(--ink);border-radius:20px;padding:24px;width:min(420px,100%);display:grid;gap:12px;box-shadow:0 20px 60px rgb(0 0 0/.3)}
 #auth h1{color:var(--sea2)}#auth p{margin:0;color:var(--mute);font-size:14.5px}
 #auth .err{color:var(--warn);font-size:14px;min-height:1em}
@@ -121,7 +121,7 @@ label{display:grid;gap:4px;font-size:14px;color:var(--mute)}
 </style>
 </head>
 <body>
-<div id="auth"><form class="box" id="fAuth">
+<div id="auth" hidden><form class="box" id="fAuth">
   <h1>Filtr Ustası</h1>
   <p id="aInfo">Hesabınıza daxil olun. Məlumatlar telefonda və kompüterdə eyni olacaq.</p>
   <label>E-poçt<input id="aMail" type="email" autocomplete="username" required></label>
@@ -130,10 +130,17 @@ label{display:grid;gap:4px;font-size:14px;color:var(--mute)}
   <button class="btn" type="submit" id="aBtn">Daxil ol</button>
   <button class="lnk" type="button" id="aMode">Hesabım yoxdur — yeni hesab aç</button>
   <button class="lnk" type="button" id="aReset">Şifrəni unutmuşam</button>
+  <button class="btn ghost" type="button" id="aInst">Telefona / kompüterə yüklə</button>
+</form></div>
+<div id="lock" hidden style="position:fixed;inset:0;background:var(--sea);z-index:60;display:grid;place-items:center;padding:16px"><form class="box" id="fLock" style="background:var(--card);color:var(--ink);border-radius:20px;padding:24px;width:min(420px,100%);display:grid;gap:12px">
+  <h1 style="color:var(--sea2)">Filtr Ustası</h1>
+  <p class="meta" style="margin:0">Bu tətbiq yalnız sahibi üçündür. Sizə verilən şəxsi linki açın və ya açarı bir dəfə buraya yazın.</p>
+  <label>Açar<input id="lockKey" autocomplete="off" required></label>
+  <button class="btn" type="submit">Aç</button>
 </form></div>
 <header><div class="top">
   <div><h1>Filtr Ustası</h1><div class="sub">Müştərilər, işlər, xatırlatmalar və aylıq qazanc — telefon və noutbukda eyni baza</div></div>
-  <div class="hb"><button class="btn" type="button" id="bImp">Köhnə bazanı yüklə</button><button class="btn" type="button" id="bExp">Ehtiyat nüsxə</button><button class="btn" type="button" id="bOut">Çıxış</button></div>
+  <div class="hb"><button class="btn" type="button" id="bInst" style="background:#ff6b4a">Telefona / kompüterə yüklə</button><button class="btn" type="button" id="bImp">Köhnə bazanı yüklə</button><button class="btn" type="button" id="bExp">Ehtiyat nüsxə</button></div>
   <input type="file" id="impFile" accept=".json,application/json" hidden>
 </div></header>
 <main>
@@ -191,6 +198,13 @@ label{display:grid;gap:4px;font-size:14px;color:var(--mute)}
   </div>
 </form></dialog>
 
+<dialog id="dInst"><div class="dbody">
+  <h2>Tətbiqi yüklə</h2>
+  <p class="meta" style="margin:0">Yüklədikdən sonra telefonun ana ekranında və kompüterin iş masasında "Filtr Ustası" ikonu olacaq, ayrıca proqram kimi açılacaq.</p>
+  <button class="btn" type="button" id="iGo" hidden style="height:54px;font-size:17px">İndi yüklə</button>
+  <div id="iTxt" class="hist"></div>
+  <div class="fbtn"><button class="btn ghost" type="button" data-close>Bağla</button></div>
+</div></dialog>
 <dialog id="dCust"><div class="dbody" id="cBody"></div></dialog>
 
 <dialog id="dExp"><form id="fExp">
@@ -386,7 +400,7 @@ async function saveCust(c){
   const k=calc(o);o.remind=k.remind;o.svcDue=k.svc;o.payDue=k.pay;o.debt=k.debt;o.updated=new Date().toISOString();
   dbDocs.set(c.id,o);render();
   cacheSave();
-  const {error}=await sb.from('musteriler').upsert({user_id:me.id,id:c.id,data:o,updated_at:o.updated},{onConflict:'user_id,id'});
+  const {error}=await sb.from('musteriler').upsert({id:c.id,data:o,updated_at:o.updated},{onConflict:'id'});
   if(error){toast('Saxlamaq alınmadı — interneti yoxlayın');throw error}
 }
 const getC=id=>{const c=custs.find(x=>x.id===id);return c?JSON.parse(JSON.stringify(plain(c))):null};
@@ -476,7 +490,7 @@ let eEdit=null;
 function openExp(x){eEdit=x||null;$('eT').textContent=x?'Xərci düzəlt':'Xərc yaz';$('eDate').value=x?.date||today();$('eAmt').value=x?.amt??'';$('eCat').value=x?.cat||'Material / ehtiyat hissə alışı';$('eNote').value=x?.note||'';$('eDel').hidden=!x;$('eDel').textContent='Sil';$('dExp').showModal()}
 $('fExp').addEventListener('submit',async e=>{e.preventDefault();if(!me)return toast('Daxil olmamısınız');
   const o={date:$('eDate').value,amt:+$('eAmt').value,cat:$('eCat').value,note:$('eNote').value.trim(),updated:new Date().toISOString()};
-  const id=eEdit?.id||'e'+uid();const {error}=await sb.from('xercler').upsert({user_id:me.id,id,data:o,updated_at:o.updated},{onConflict:'user_id,id'});
+  const id=eEdit?.id||'e'+uid();const {error}=await sb.from('xercler').upsert({id,data:o,updated_at:o.updated},{onConflict:'id'});
   if(error)return toast('Saxlamaq alınmadı');exps=exps.filter(x=>x.id!==id).concat({id,...o});cacheSave();render();$('dExp').close();toast('Xərc yazıldı')});
 $('eDel').addEventListener('click',async()=>{if($('eDel').textContent==='Sil'){$('eDel').textContent='Əminsiniz? Sil';return}const {error}=await sb.from('xercler').delete().eq('id',eEdit.id);if(error)return toast('Silmək alınmadı');exps=exps.filter(x=>x.id!==eEdit.id);cacheSave();render();$('dExp').close()});
 
@@ -524,7 +538,7 @@ $('fAuth').addEventListener('submit',async e=>{e.preventDefault();$('aErr').text
   finally{$('aBtn').disabled=false}});
 $('aReset').addEventListener('click',async()=>{const email=$('aMail').value.trim();if(!email){$('aErr').textContent='Əvvəlcə e-poçtu yazın.';return}
   const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});$('aErr').textContent=error?'Xəta: '+error.message:'Şifrəni yeniləmək üçün e-poçtunuza link göndərildi.'});
-$('bOut').addEventListener('click',async()=>{if($('bOut').textContent!=='Əminsiniz?'){$('bOut').textContent='Əminsiniz?';setTimeout(()=>$('bOut').textContent='Çıxış',3000);return}await sb.auth.signOut();dbDocs=new Map();exps=[];render()});
+if(0)$('bOut').addEventListener('click',async()=>{if($('bOut').textContent!=='Əminsiniz?'){$('bOut').textContent='Əminsiniz?';setTimeout(()=>$('bOut').textContent='Çıxış',3000);return}await sb.auth.signOut();dbDocs=new Map();exps=[];render()});
 
 /* ---------- import old base / backup ---------- */
 $('bImp').addEventListener('click',()=>$('impFile').click());
@@ -533,26 +547,46 @@ $('impFile').addEventListener('change',async()=>{const f=$('impFile').files[0];$
   const todo=arr.filter(c=>c&&c.id&&c.name&&!dbDocs.has(c.id));
   $('mig').hidden=false;let done=0;
   for(let i=0;i<todo.length;i+=200){
-    const rows=todo.slice(i,i+200).map(c=>{const o=plain(c);o.jobs=(o.jobs||[]).map(j=>j.id?j:{...j,id:uid()});const k=calc(o);o.remind=k.remind;o.svcDue=k.svc;o.payDue=k.pay;o.debt=k.debt;o.updated=new Date().toISOString();return{user_id:me.id,id:c.id,data:o,updated_at:o.updated}});
-    const {error}=await sb.from('musteriler').upsert(rows,{onConflict:'user_id,id'});
+    const rows=todo.slice(i,i+200).map(c=>{const o=plain(c);o.jobs=(o.jobs||[]).map(j=>j.id?j:{...j,id:uid()});const k=calc(o);o.remind=k.remind;o.svcDue=k.svc;o.payDue=k.pay;o.debt=k.debt;o.updated=new Date().toISOString();return{id:c.id,data:o,updated_at:o.updated}});
+    const {error}=await sb.from('musteriler').upsert(rows,{onConflict:'id'});
     if(error){$('mig').textContent='Yükləmə dayandı: '+error.message;return}
     done+=rows.length;$('mig').textContent=`Köhnə baza yüklənir: ${done} / ${todo.length}`;
   }
-  if(ex.length){await sb.from('xercler').upsert(ex.filter(x=>x.id).map(x=>{const o={...x};delete o.id;return{user_id:me.id,id:x.id,data:o,updated_at:new Date().toISOString()}}),{onConflict:'user_id,id'})}
+  if(ex.length){await sb.from('xercler').upsert(ex.filter(x=>x.id).map(x=>{const o={...x};delete o.id;return{id:x.id,data:o,updated_at:new Date().toISOString()}}),{onConflict:'id'})}
   $('mig').textContent=todo.length?`Yükləndi ✓ ${todo.length} müştəri əlavə olundu`:'Bu fayldakı müştərilərin hamısı artıq bazada var';
   setTimeout(()=>$('mig').hidden=true,6000);await load()});
 $('bExp').addEventListener('click',()=>{
   const j={tarix:new Date().toISOString(),musteriler:[...dbDocs].map(([id,d])=>({...d,id})),xercler:exps};
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(j)],{type:'application/json'}));a.download='filtr-ustasi-ehtiyat-'+today()+'.json';document.body.appendChild(a);a.click();a.remove();toast('Ehtiyat nüsxə endirildi')});
 
+/* ---------- install (PWA) ---------- */
+let dp=null;
+const isStand=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;$('iGo').hidden=false});
+addEventListener('appinstalled',()=>{dp=null;$('iGo').hidden=true;try{$('dInst').close()}catch{}toast('Tətbiq yükləndi ✓');instUI()});
+function instUI(){if(isStand()){$('bInst').hidden=true;$('aInst').hidden=true}}
+function openInst(){
+  const ua=navigator.userAgent,ios=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1),and=/Android/.test(ua);
+  const S={
+   and:['Android telefon (Chrome)',['Sağ yuxarıda ⋮ (üç nöqtə) basın.','“Tətbiqi quraşdır” və ya “Ana ekrana əlavə et” seçin.','“Quraşdır / Əlavə et” basın — ikon ana ekranda görünəcək.']],
+   ios:['iPhone / iPad (Safari)',['Bu linki Safari-də açın (Chrome-da yox).','Aşağıda Paylaş düyməsini (kvadrat və yuxarı ox) basın.','“Ana ekrana” (Add to Home Screen) seçin, sonra “Əlavə et”.']],
+   pc:['Kompüter (Chrome və ya Edge)',['Ünvan sətrinin sağ tərəfindəki quraşdırma ikonuna basın (monitor və ox).','Yoxdursa: ⋮ → “Saxla və paylaş” → “Səhifəni tətbiq kimi quraşdır”.','“Quraşdır” basın — iş masasında və Start menyusunda ikon olacaq.']]};
+  const order=ios?['ios','and','pc']:and?['and','ios','pc']:['pc','and','ios'];
+  $('iTxt').innerHTML=order.map((k,i)=>`<div class="j"${i?' style="opacity:.75"':''}><b>${i?'':'Sizin cihaz: '}${esc(S[k][0])}</b><ol style="margin:6px 0 0;padding-left:20px">${S[k][1].map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div>`).join('');
+  $('iGo').hidden=!dp;$('dInst').showModal();
+}
+$('bInst').addEventListener('click',openInst);$('aInst').addEventListener('click',openInst);
+$('iGo').addEventListener('click',async()=>{if(!dp)return;dp.prompt();const r=await dp.userChoice;dp=null;$('iGo').hidden=true;if(r.outcome==='accepted'){$('dInst').close();toast('Yüklənir…')}});
+instUI();
+
 /* ---------- start ---------- */
 render();
-if(!window.supabase){$('aErr').textContent='İnternet yoxdur — proqram yüklənmədi. İnterneti yoxlayıb yenidən açın.'}
-else{
-  sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-  sb.auth.getSession().then(({data})=>enter(data.session));
-  sb.auth.onAuthStateChange((ev,session)=>{if(ev==='SIGNED_IN'&&!me)enter(session);if(ev==='SIGNED_OUT')enter(null)});
-}
+let ACAR='';try{const m=location.hash.match(/acar=([\w-]+)/);if(m){localStorage.setItem('filtr-acar',m[1]);history.replaceState(null,'',location.pathname)}ACAR=localStorage.getItem('filtr-acar')||''}catch{}
+function startDb(){sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{headers:{'x-acar':ACAR}}});$('lock').hidden=true;enter({user:{id:'ortaq'}})}
+$('fLock').addEventListener('submit',e=>{e.preventDefault();ACAR=$('lockKey').value.trim();try{localStorage.setItem('filtr-acar',ACAR)}catch{}if(window.supabase)startDb()});
+if(!window.supabase){$('status').textContent='İnternet yoxdur — proqram yüklənmədi. İnterneti yoxlayıb yenidən açın.'}
+else if(ACAR)startDb();
+else $('lock').hidden=false;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 </script>
