@@ -339,25 +339,39 @@ function render(){
 }
 
 /* ---------- money ---------- */
-function monthSum(m){
+function rangeSum(from,to){
+  const inR=d=>!!d&&d>=from&&d<to;
   const r={sale:0,svc:0,cred:0,cost:0,exp:0,jobs:0,sales:0};
   for(const c of custs){
     for(const j of c.jobs||[]){
-      if((j.date||'').startsWith(m)){r.cost+=+j.cost||0;r.jobs++;if(isSale(j))r.sales++}
+      if(inR(j.date)){r.cost+=+j.cost||0;r.jobs++;if(isSale(j))r.sales++}
       if(!isCred(j)&&j.pay!=='borc'||(j.pay==='borc'&&j.paid)){const d=j.pay==='borc'?(j.paidOn||j.date):j.date;
-        if((d||'').startsWith(m)){if(isSale(j))r.sale+=+j.price||0;else r.svc+=+j.price||0}}
+        if(inR(d)){if(isSale(j))r.sale+=+j.price||0;else r.svc+=+j.price||0}}
     }
-    for(const p of c.plan||[])if(p.ok&&(p.on||p.d||'').startsWith(m))r.cred+=+p.a||0;
+    for(const p of c.plan||[])if(p.ok&&inR(p.on||p.d))r.cred+=+p.a||0;
   }
-  for(const e of exps)if((e.date||'').startsWith(m))r.exp+=+e.amt||0;
+  for(const e of exps)if(inR(e.date))r.exp+=+e.amt||0;
   r.inc=r.sale+r.svc+r.cred;r.net=r.inc-r.cost-r.exp;return r}
+const monStart=m=>m+'-01';
+const monNext=m=>{const[y,mm]=m.split('-').map(Number);const x=new Date(y,mm,1);return x.getFullYear()+'-'+pad(x.getMonth()+1)};
+const weekStart=d=>{const x=new Date(d+'T12:00:00');const wd=(x.getDay()+6)%7;x.setDate(x.getDate()-wd);return isoD(x)};
+let repMode='month',repW=weekStart(today());
+function period(){
+  if(repMode==='week'){const from=repW,to=addDays(repW,7);return{from,to,label:fmtD(from)+' – '+fmtD(addDays(repW,6)),
+    list:[...Array(12)].map((_,i)=>{const f=addDays(repW,(i-11)*7);return{from:f,to:addDays(f,7),lab:f.slice(8,10)+'.'+f.slice(5,7),cur:i===11}})}}
+  const[y,mm]=repM.split('-').map(Number);
+  const ms=[...Array(12)].map((_,i)=>{const d=new Date(y,mm-12+i,1);return d.getFullYear()+'-'+pad(d.getMonth()+1)});
+  return{from:monStart(repM),to:monStart(monNext(repM)),label:MON[mm-1]+' '+y,list:ms.map((m,i)=>({from:monStart(m),to:monStart(monNext(m)),lab:MON[+m.slice(5)-1].slice(0,3),cur:i===11}))};
+}
 function report(){
-  const r=monthSum(repM),[y,mm]=repM.split('-').map(Number);
-  const months=[...Array(12)].map((_,i)=>{const d=new Date(y,mm-12+i,1);return d.getFullYear()+'-'+pad(d.getMonth()+1)});
-  const nets=months.map(m=>monthSum(m).net),max=Math.max(1,...nets.map(Math.abs));
-  const ex=exps.filter(e=>(e.date||'').startsWith(repM)).sort((a,b)=>b.date.localeCompare(a.date));
-  return`<div class="mon"><button class="btn ghost sm" type="button" data-mon="-1" aria-label="Əvvəlki ay">‹</button><b>${esc(MON[mm-1])} ${esc(y)}</b><button class="btn ghost sm" type="button" data-mon="1" aria-label="Növbəti ay">›</button></div>
-  <section class="big"><div class="meta">Xalis qazanc</div><div class="net ${r.net<0?'neg':'pos'}">${esc(money(r.net))}</div>
+  const P=period(),r=rangeSum(P.from,P.to);
+  const nets=P.list.map(p=>rangeSum(p.from,p.to).net),max=Math.max(1,...nets.map(Math.abs));
+  const ex=exps.filter(e=>e.date&&e.date>=P.from&&e.date<P.to).sort((a,b)=>b.date.localeCompare(a.date));
+  const W=repMode==='week';
+  return`<div class="fl" style="margin-top:14px"><button type="button" class="chip" data-rm="week" aria-pressed="${W}">Həftəlik</button><button type="button" class="chip" data-rm="month" aria-pressed="${!W}">Aylıq</button>
+   <button type="button" class="btn ghost sm" data-rnow="1">${W?'Bu həftə':'Bu ay'}</button></div>
+  <div class="mon"><button class="btn ghost sm" type="button" data-mon="-1" aria-label="${W?'Əvvəlki həftə':'Əvvəlki ay'}">‹</button><b>${esc(P.label)}</b><button class="btn ghost sm" type="button" data-mon="1" aria-label="${W?'Növbəti həftə':'Növbəti ay'}">›</button></div>
+  <section class="big"><div class="meta">${W?'Həftənin':'Ayın'} xalis qazancı</div><div class="net ${r.net<0?'neg':'pos'}">${esc(money(r.net))}</div>
   <div class="rows">
    <div class="in"><span>Satışdan gələn (nağd)</span><b>+${esc(money(r.sale))}</b></div>
    <div class="in"><span>Servisdən gələn</span><b>+${esc(money(r.svc))}</b></div>
@@ -367,11 +381,11 @@ function report(){
    <div class="out"><span>Digər xərclər</span><b>−${esc(money(r.exp))}</b></div>
    <div><span>Görülən iş / satış sayı</span><b>${esc(r.jobs)} / ${esc(r.sales)}</b></div>
   </div>
-  <div class="bars" aria-label="Son 12 ayın xalis qazancı">${nets.map((v,i)=>`<i class="${v<0?'neg':''} ${months[i]===repM?'cur':''}" style="height:${(Math.abs(v)/max*100).toFixed(1)}%" title="${esc(MON[+months[i].slice(5)-1]+': '+money(v))}"></i>`).join('')}</div>
-  <div class="blab">${months.map(m=>`<span>${esc(MON[+m.slice(5)-1].slice(0,3))}</span>`).join('')}</div></section>
+  <div class="bars" aria-label="Son 12 ${W?'həftənin':'ayın'} xalis qazancı">${nets.map((v,i)=>`<i class="${v<0?'neg':''} ${P.list[i].cur?'cur':''}" style="height:${(Math.abs(v)/max*100).toFixed(1)}%" title="${esc(P.list[i].lab+': '+money(v))}"></i>`).join('')}</div>
+  <div class="blab">${P.list.map(p=>`<span>${esc(p.lab)}</span>`).join('')}</div></section>
   <h2>Xərclər <span>${esc(money(r.exp))}</span></h2>
   ${canWrite?`<button class="btn" type="button" id="addExp" style="margin-bottom:10px">+ Xərc yaz</button>`:''}
-  <div class="list">${ex.map(e=>`<article class="item"><div><h3 data-exp="${esc(e.id)}">${esc(e.cat)}</h3><div class="meta"><span>${esc(fmtD(e.date))}</span>${e.note?`<span>${esc(e.note)}</span>`:''}</div></div><div class="right"><span class="amt">−${esc(money(e.amt))}</span></div></article>`).join('')||empty('Bu ay xərc yazılmayıb (benzin, material alışı, reklam…).')}</div>`}
+  <div class="list">${ex.map(e=>`<article class="item"><div><h3 data-exp="${esc(e.id)}">${esc(e.cat)}</h3><div class="meta"><span>${esc(fmtD(e.date))}</span>${e.note?`<span>${esc(e.note)}</span>`:''}</div></div><div class="right"><span class="amt">−${esc(money(e.amt))}</span></div></article>`).join('')||empty(W?'Bu həftə xərc yazılmayıb.':'Bu ay xərc yazılmayıb (benzin, material alışı, reklam…).')}</div>`}
 
 /* ---------- customer card ---------- */
 let curC=null;
@@ -461,7 +475,7 @@ function editInfo(id){const c=getC(id);
 }
 
 /* ---------- clicks ---------- */
-document.addEventListener('click',async e=>{const b=e.target.closest('[data-open],[data-job],[data-snooze],[data-paid],[data-pl],[data-stop],[data-editc],[data-back],[data-ej],[data-jpaid],[data-close],[data-mon],[data-exp],[data-cf],#tbl,#more,#addExp');if(!b)return;
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-open],[data-job],[data-snooze],[data-paid],[data-pl],[data-stop],[data-editc],[data-back],[data-ej],[data-jpaid],[data-close],[data-mon],[data-exp],[data-cf],[data-rm],[data-rnow],#tbl,#more,#addExp');if(!b)return;
   const d=b.dataset;
   if(d.cf){cf=d.cf;showN=40;render();return}
   if(b.id==='tbl'){tbl=!tbl;render();return}
@@ -469,7 +483,9 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-open
   if(b.id==='more'){showN+=60;render();return}
   if(b.id==='addExp'){openExp();return}
   if(d.exp){openExp(exps.find(x=>x.id===d.exp));return}
-  if(d.mon){const[y,m]=repM.split('-').map(Number);const x=new Date(y,m-1+(+d.mon),1);repM=x.getFullYear()+'-'+pad(x.getMonth()+1);render();return}
+  if(d.rm){repMode=d.rm;render();return}
+  if(d.rnow){if(repMode==='week')repW=weekStart(today());else repM=today().slice(0,7);render();return}
+  if(d.mon){if(repMode==='week'){repW=addDays(repW,7*(+d.mon));render();return}const[y,m]=repM.split('-').map(Number);const x=new Date(y,m-1+(+d.mon),1);repM=x.getFullYear()+'-'+pad(x.getMonth()+1);render();return}
   if(d.open){openCust(d.open);return}
   if(d.back){openCust(d.back);return}
   if(d.job){openJob(d.job);return}
