@@ -117,6 +117,8 @@ label{display:grid;gap:4px;font-size:14px;color:var(--mute)}
 #auth .err{color:var(--warn);font-size:14px;min-height:1em}
 #auth .lnk{background:none;border:0;color:var(--sea2);font:inherit;font-size:14px;cursor:pointer;text-decoration:underline;padding:4px}
 .cerr{color:var(--warn);font-size:13.5px;font-weight:600}
+.pr{display:flex;gap:6px;align-items:stretch}.pr>button:first-child{flex:1}.pr .btn{flex:none}
+.pt td:first-child{width:auto}.pt input[type=date]{width:128px;padding:6px 4px;font-size:14px}.pt input[type=number]{width:64px}.pt td,.pt th{padding:6px 4px}.pt td.x{width:40px}
 .locr{display:flex;gap:8px;align-items:center}.locr .btn{flex:none}
 .mt input{height:40px;padding:6px 8px;font-size:15px}.mt td{padding:6px 6px}.mt td.x{width:44px}.mt input[type=number]{width:72px}.mt td:first-child{width:100%}
 .lnkb{border:0;background:none;color:var(--sea2);font:inherit;font-size:13.5px;font-weight:600;text-decoration:underline;cursor:pointer;padding:0}
@@ -459,14 +461,14 @@ CFG=D;mDraft=null;mDirty=false;cacheSave();render();toast('Maya siyahısı yadda
 /* ---------- customer card ---------- */
 let curC=null;
 function openCust(id){
-const c=custs.find(x=>x.id===id);if(!c)return;curC=c;const x=c._;
+const c=custs.find(x=>x.id===id);if(!c)return;curC=c;const x=c._;$('cBody').onclick=null;$('cBody').oninput=null;$('cBody').onchange=null;
 const t=today();
 $('cBody').innerHTML=`<h2>${esc(c.name)}</h2>
 <div class="meta">${c.phone?`<span>${esc(c.phone)}</span>`:''}${c.phone2?`<span>${esc(c.phone2)}</span>`:''}${c.addr?`<span>${esc(c.addr)}</span>`:''}</div>
 <div class="meta">${x.svc?`<span>Növbəti servis: <b>${esc(fmtD(x.svc))}</b></span>`:c.stop?'<span>Artıq servis istəmir</span>':''}</div>${debtLine(x)}
 <div class="acts">${wa(c,'')?`<a class="btn sm wa" href="${esc(wa(c,''))}" target="_blank" rel="noopener">WhatsApp</a>`:''}${mapUrl(c)?`<a class="btn ghost sm" href="${esc(mapUrl(c))}" target="_blank" rel="noopener">📍 Xəritədə aç</a>`:''}
 ${canWrite?`<button class="btn sm" type="button" data-job="${esc(c.id)}">+ Yeni iş</button><button class="btn ghost sm" type="button" data-editc="${esc(c.id)}">Məlumatı düzəlt</button><button class="btn ghost sm" type="button" data-stop="${esc(c.id)}">${c.stop?'Yenə xatırlat':'Artıq istəmir'}</button>`:''}</div>
-${(c.plan||[]).length?`<h2 style="font-size:17px;margin-top:6px">Kredit ödənişləri <span class="meta">— toxunun: ödədi / ödəmədi</span></h2><div class="plan">${c.plan.map((p,i)=>`<button type="button" data-pl="${i}" class="${p.ok?'ok':p.d<t?'late':''}"><span>${esc(fmtD(p.d))}${p.t?' · '+esc(p.t):''}</span><span>${p.a?esc(money(p.a)):''} ${p.ok?'✓ ödənib':p.d<t?'gecikir':'gözlənilir'}</span></button>`).join('')}</div>`:''}
+${(c.plan||[]).length?`<h2 style="font-size:17px;margin-top:6px">Kredit ödənişləri <span class="meta">— toxunun: ödədi / ödəmədi</span></h2>${canWrite?`<div><button class="btn ghost sm" type="button" data-pedit="${esc(c.id)}">✎ Qrafiki düzəlt (tarix, məbləğ)</button></div>`:''}<div class="plan">${c.plan.map((p,i)=>`<div class="pr"><button type="button" data-pl="${i}" class="${p.ok?'ok':p.d<t?'late':''}"><span>${esc(fmtD(p.d))}${p.t?' · '+esc(p.t):''}</span><span>${p.a?esc(money(p.a)):''} ${p.ok?'✓ ödənib':p.d<t?'gecikir':'gözlənilir'}</span></button>${canWrite&&!p.ok?`<button class="btn ghost sm" type="button" data-plmv="${i}" title="Bu ayın pulunu növbəti aya əlavə et">→ gələn aya</button>`:''}</div>`).join('')}</div>`:''}
 <h2 style="font-size:17px;margin-top:6px">Görülən işlər (${esc(x.jobs.length)})</h2>
 <div class="hist">${x.jobs.map(j=>`<div class="j"><b>${esc(fmtD(j.date))} · ${esc(j.type)}</b>${j.price?` · ${esc(money(j.price))}`:''}${j.cost?` <span class="meta" style="display:inline">(maya ${esc(money(j.cost))})</span>`:''}${j.pay==='borc'&&!j.paid?' <span class="pill red">borc</span>':''}
 <div class="meta">${j.parts?.length?`<span>Dəyişdi: ${esc(j.parts.join(', '))}</span>`:''}${j.model?`<span>${esc(j.model)}</span>`:''}${j.atype?`<span>${j.atype==='qapali'?'Qapalı':'Açıq'} aparat</span>`:''}${j.usta?`<span>Gördü: ${esc(j.usta)}${j.ustaPay?' ('+esc(money(j.ustaPay))+')':''}</span>`:''}${j.next?`<span>Növbəti: ${esc(fmtD(j.next))}</span>`:''}</div>${j.note?`<div class="meta">${esc(j.note)}</div>`:''}
@@ -562,6 +564,22 @@ $('jDel').addEventListener('click',async()=>{if($('jDel').textContent==='Sil'){$
 const c=jCust;c.jobs=c.jobs.filter(x=>!((jEdit.id&&x.id===jEdit.id)||(!jEdit.id&&x.date===jEdit.date&&x.type===jEdit.type)));
 try{await saveCust(c);$('dJob').close();toast('Silindi');openCust(c.id)}catch{}});
 
+/* ---------- kredit qrafikini düzəlt ---------- */
+function editPlan(id){const c=getC(id);if(!c)return;const rows=(c.plan||[]).map(p=>({...p}));
+const sum=()=>{const e=$('pSum');if(e)e.textContent=money(rows.filter(p=>!p.ok).reduce((s,p)=>s+(+p.a||0),0))};
+const draw=()=>{$('cBody').innerHTML=`<h2>Ödəniş qrafiki — ${esc(c.name)}</h2><p class="meta" style="margin:0">Tarixi və məbləği dəyişin, ay əlavə edin və ya silin. Məs. gecikən ayı silib gələn ayı 100 ₼ edə bilərsiniz.</p>
+<div class="tw"><table class="mt pt"><thead><tr><th>Tarix</th><th>Məbləğ ₼</th><th>✓</th><th></th></tr></thead><tbody>${rows.map((p,i)=>`<tr><td><input type="date" data-pe="${i}.d" value="${esc(p.d||'')}"></td><td><input type="number" min="0" step="0.5" inputmode="decimal" data-pe="${i}.a" value="${esc(p.a??'')}"></td><td style="text-align:center"><input type="checkbox" data-pe="${i}.ok" ${p.ok?'checked':''} style="width:22px;height:22px" aria-label="Ödənib"></td><td class="x"><button type="button" class="btn ghost sm" data-pdel="${i}" aria-label="Sil">✕</button></td></tr>`).join('')}</tbody></table></div>
+<div class="fl"><button type="button" class="btn ghost sm" id="pAdd">+ Ay əlavə et</button><span class="meta">Ödənməmiş cəmi: <b id="pSum" style="color:var(--ink)"></b></span></div>
+<div class="fbtn"><button class="btn ghost" type="button" data-back="${esc(id)}">Geri</button><button class="btn" type="button" id="pSave">Yadda saxla</button></div>`;sum()};
+draw();
+const upd=e=>{const k=e.target.dataset?.pe;if(!k)return;const[i,f]=k.split('.'),r=rows[+i];if(f==='ok'){r.ok=e.target.checked;if(r.ok)r.on=r.on||today();else delete r.on}else if(f==='a')r.a=e.target.value===''?0:+e.target.value;else r.d=e.target.value;sum()};
+$('cBody').oninput=upd;$('cBody').onchange=upd;
+$('cBody').onclick=async e=>{const b=e.target.closest('[data-pdel],#pAdd,#pSave');if(!b)return;
+if(b.dataset.pdel!==undefined){rows.splice(+b.dataset.pdel,1);draw();return}
+if(b.id==='pAdd'){const last=rows.map(p=>p.d).filter(Boolean).sort().pop()||today();rows.push({d:addMonths(last,1),a:rows.length?(+rows[rows.length-1].a||0):0,ok:false});draw();return}
+c.plan=rows.filter(p=>p.d).sort((a,b)=>a.d.localeCompare(b.d));delete c.snooze;b.disabled=true;
+try{await saveCust(c);toast('Qrafik yadda saxlanıldı');openCust(id)}catch{b.disabled=false}};
+}
 /* ---------- edit customer info (simple inline form in the card) ---------- */
 function editInfo(id){const c=getC(id);
 $('cBody').innerHTML=`<h2>Məlumatı düzəlt</h2><label>Ad<input id="iN" value="${esc(c.name)}"></label><div class="row"><label>Telefon<input id="iP" type="tel" value="${esc(c.phone)}"></label><label>2-ci telefon<input id="iP2" type="tel" value="${esc(c.phone2||'')}"></label></div><label>Ünvan<input id="iA" value="${esc(c.addr||'')}"></label><label>Konum (xəritədə yeri)</label><div class="locr"><button type="button" class="btn ghost sm" id="iLocMe">📍 Olduğum yer</button><input id="iL" value="${esc(c.loc||'')}" autocomplete="off" placeholder="və ya Google Maps linki"></div>
@@ -572,7 +590,7 @@ $('iDel').onclick=async()=>{if($('iDel').textContent!=='Əminsiniz? Sil'){$('iDe
 }
 
 /* ---------- clicks ---------- */
-document.addEventListener('click',async e=>{const b=e.target.closest('[data-open],[data-job],[data-snooze],[data-paid],[data-pl],[data-stop],[data-editc],[data-back],[data-ej],[data-jpaid],[data-close],[data-mon],[data-exp],[data-cf],[data-rm],[data-rnow],#tbl,#more,#addExp');if(!b)return;
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-open],[data-job],[data-snooze],[data-paid],[data-pl],[data-stop],[data-editc],[data-back],[data-ej],[data-jpaid],[data-plmv],[data-pedit],[data-close],[data-mon],[data-exp],[data-cf],[data-rm],[data-rnow],#tbl,#more,#addExp');if(!b)return;
 const d=b.dataset;
 if(d.cf){cf=d.cf;showN=40;render();return}
 if(b.id==='tbl'){tbl=!tbl;render();return}
@@ -587,14 +605,22 @@ if(d.open){openCust(d.open);return}
 if(d.back){openCust(d.back);return}
 if(d.job){openJob(d.job);return}
 if(d.editc){editInfo(d.editc);return}
+if(d.pedit){editPlan(d.pedit);return}
 if(d.ej!==undefined){const c=getC(curC.id);const j=c.jobs.find(x=>(d.ej&&x.id===d.ej)||(!d.ej&&x.date===d.ed&&x.type===d.et));jCust=null;openJob(curC.id,j);return}
-const id=d.snooze||d.paid||d.stop||(d.pl!==undefined||d.jpaid!==undefined?curC.id:'');const c=getC(id);if(!c)return;c.id=id;
+const id=d.snooze||d.paid||d.stop||(d.pl!==undefined||d.jpaid!==undefined||d.plmv!==undefined?curC.id:'');const c=getC(id);if(!c)return;c.id=id;
 if(d.snooze){c.snooze=addDays(today(),7);await saveCust(c).then(()=>toast('Yaxşı — 7 gün sonra yenə xatırladacaq')).catch(()=>{})}
 else if(d.paid){const p=(c.plan||[]).filter(p=>!p.ok).sort((a,b)=>a.d.localeCompare(b.d))[0];
 if(p){p.ok=true;p.on=today()}else{const j=(c.jobs||[]).find(j=>j.pay==='borc'&&!j.paid);if(j){j.paid=true;j.paidOn=today()}}
 delete c.snooze;await saveCust(c).then(()=>toast('Ödəniş qeyd olundu')).catch(()=>{})}
 else if(d.stop){c.stop=!c.stop;await saveCust(c).catch(()=>{});openCust(id)}
 else if(d.pl!==undefined){const p=c.plan[+d.pl];p.ok=!p.ok;if(p.ok)p.on=today();else delete p.on;await saveCust(c).catch(()=>{});openCust(id)}
+else if(d.plmv!==undefined){const i=+d.plmv,p=c.plan[i];if(!p||p.ok)return;
+let j=-1;c.plan.forEach((q,k)=>{if(k!==i&&!q.ok&&q.d>p.d&&q.d>=today()&&(j<0||q.d<c.plan[j].d))j=k});
+const amt=+p.a||0;let msg;
+if(j>=0){c.plan[j].a=(+c.plan[j].a||0)+amt;c.plan[j].t=((c.plan[j].t?c.plan[j].t+', ':'')+'+'+fmtD(p.d)+' ayı');msg=money(amt)+' '+fmtD(c.plan[j].d)+' tarixinə keçirildi — indi '+money(c.plan[j].a)}
+else{let nd=addMonths(p.d,1);while(nd<today())nd=addMonths(nd,1);c.plan.push({d:nd,a:amt,ok:false,t:'+'+fmtD(p.d)+' ayı'});msg=money(amt)+' gələn aya keçirildi'}
+c.plan.splice(i,1);c.plan.sort((a,b)=>a.d.localeCompare(b.d));delete c.snooze;
+await saveCust(c).then(()=>toast(msg)).catch(()=>{});openCust(id)}
 else if(d.jpaid!==undefined){const j=c.jobs.find(x=>x.id===d.jpaid);if(j){j.paid=true;j.paidOn=today()}await saveCust(c).catch(()=>{});openCust(id)}
 });
 
