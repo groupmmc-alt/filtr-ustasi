@@ -291,8 +291,9 @@ const unpaid=(c.plan||[]).filter(p=>!p.ok).sort((a,b)=>a.d.localeCompare(b.d));
 const borc=jobs.filter(j=>!isCred(j)&&j.pay==='borc'&&!j.paid);
 let pay=unpaid[0]?.d||'';if(pay&&c.snooze&&c.snooze>pay)pay=c.snooze;
 const debt=unpaid.reduce((s,p)=>s+(+p.a||0),0)+borc.reduce((s,j)=>s+(+j.price||0),0);
+const t0=today(),lateP=unpaid.filter(p=>p.d<t0),late=lateP.reduce((s,p)=>s+(+p.a||0),0)+borc.reduce((s,j)=>s+(+j.price||0),0);
 let remind=[svc,pay].filter(Boolean).sort()[0]||'';
-return{jobs,last,svc,pay,unpaid,borc,debt,remind};
+return{jobs,last,svc,pay,unpaid,borc,debt,late,lateN:lateP.length,remind};
 }
 function rebuild(){
 const m=new Map();
@@ -316,11 +317,11 @@ if(kind==='pay'&&x.unpaid[0]){const d=daysTo(x.unpaid[0].d);tag=`<span class="pi
 else if(kind==='pay'){tag=`<span class="pill red">Borc ${esc(money(x.debt))}</span>`}
 else if(kind==='svc'){const d=daysTo(x.svc);tag=`<span class="pill ${d<0?'red':'hot'}">${d<0?'Servis '+esc(-d)+' gün gecikir':d===0?'Servis bu gün':'Servisə '+esc(d)+' gün'}</span>`}
 else if(kind==='lost'){tag=`<span class="pill red">${esc(Math.round(-daysTo(x.svc)/30))} aydır gəlməyib</span>`}
-if(x.debt>0&&kind!=='pay')amt=`<span class="pill red">Borc ${esc(money(x.debt))}</span>`;
+const dl=debtLine(x);
 const link=wa(c,kind==='pay'?'pay':kind==='cust'?'':'svc');
 return`<article class="item"><div><h3 data-open="${esc(c.id)}">${esc(c.name)}</h3>
 <div class="meta">${c.phone?`<span>${esc(c.phone)}</span>`:''}${c.addr?`<span>${esc(c.addr)}</span>`:''}</div>
-<div class="meta">${x.last?`<span>Son: ${esc(x.last.type)} · ${esc(fmtD(x.last.date))}</span>`:''}${x.last?.model?`<span>${esc(x.last.model)}</span>`:''}</div></div>
+${dl}<div class="meta">${x.last?`<span>Son: ${esc(x.last.type)} · ${esc(fmtD(x.last.date))}</span>`:''}${x.last?.model?`<span>${esc(x.last.model)}</span>`:''}</div></div>
 <div class="right">${amt}${tag}</div>
 <div class="acts">${link?`<a class="btn sm wa" href="${esc(link)}" target="_blank" rel="noopener">WhatsApp</a>`:''}
 ${canWrite&&(kind==='pay')?`<button class="btn sm" type="button" data-paid="${esc(c.id)}">Ödədi</button>`:''}
@@ -329,6 +330,7 @@ ${canWrite&&kind!=='cust'?`<button class="btn ghost sm" type="button" data-snooz
 ${mapUrl(c)?`<a class="btn ghost sm" href="${esc(mapUrl(c))}" target="_blank" rel="noopener">📍 Xəritə</a>`:''}
 <button class="btn ghost sm" type="button" data-open="${esc(c.id)}">Kart</button></div></article>`}
 const empty=t=>`<div class="empty">${esc(t)}</div>`;
+function debtLine(x){if(!(x.debt>0))return'';return`<div class="meta dl">${x.late>0?`<span class="pill red">Gecikən: ${esc(money(x.late))}${x.lateN>1?' ('+esc(x.lateN)+' ay)':''}</span>`:''}<span class="pill">Ümumi qalıq: ${esc(money(x.debt))}</span></div>`}
 
 /* ---------- views ---------- */
 function render(){
@@ -340,6 +342,8 @@ const n=pays.length+svcs.length;$('nToday').hidden=!n;$('nToday').textContent=n;
 $('q').hidden=view!=='cust';
 let h='';
 if(view==='today'){
+const TD=custs.reduce((s,c)=>s+c._.debt,0),TL=custs.reduce((s,c)=>s+c._.late,0),TN=custs.filter(c=>c._.debt>0).length;
+if(TD>0)h+=`<section class="big" style="margin-top:14px"><div class="rows" style="margin-top:0"><div class="out"><span>Gecikən borclar</span><b>${esc(money(TL))}</b></div><div><span>Ümumi qalıq borc <span class="meta">(${esc(TN)} müştəri)</span></span><b>${esc(money(TD))}</b></div></div></section>`;
 h+=`<h2>Ödəniş günü <span>(kredit və borclar)</span></h2><div class="list">${pays.map(c=>card(c,'pay')).join('')||empty('Yaxın günlərdə ödəniş yoxdur.')}</div>`;
 h+=`<h2>Servis vaxtı çatanlar <span>(14 gün içində)</span></h2><div class="list">${svcs.map(c=>card(c,'svc')).join('')||empty('Yaxın 14 gündə servis vaxtı çatan yoxdur.')}</div>`;
 const oldDebt=custs.filter(c=>c._.debt>0&&!pays.includes(c));
@@ -356,11 +360,11 @@ else if(cs==='debt')l.sort((a,b)=>b._.debt-a._.debt);
 else l.sort((a,b)=>(b._.last?.date||'').localeCompare(a._.last?.date||''));
 const totDebt=l.reduce((s,c)=>s+c._.debt,0);
 h=`<div class="fl">${Object.keys(FL).map(k=>`<button type="button" class="chip" data-cf="${k}" aria-pressed="${cf===k}">${esc(FL[k])}<small>${esc(base.filter(FN[k]).length)}</small></button>`).join('')}</div>
-<div class="fl"><span class="meta"><b style="color:var(--ink)">${esc(l.length)}</b>&nbsp;müştəri${totDebt>0?' · borc cəmi '+esc(money(totDebt)):''}</span>
+<div class="fl"><span class="meta"><b style="color:var(--ink)">${esc(l.length)}</b>&nbsp;müştəri${totDebt>0?' · ümumi qalıq '+esc(money(totDebt)):''}${l.reduce((s,c)=>s+c._.late,0)>0?' · gecikən '+esc(money(l.reduce((s,c)=>s+c._.late,0))):''}</span>
 <select id="cs" aria-label="Sırala"><option value="last"${cs==='last'?' selected':''}>Son gələnlər əvvəl</option><option value="az"${cs==='az'?' selected':''}>Ada görə A–Z</option><option value="svc"${cs==='svc'?' selected':''}>Servis tarixinə görə</option><option value="debt"${cs==='debt'?' selected':''}>Borca görə</option></select>
 <button class="btn ghost sm" type="button" id="tbl">${tbl?'Kart görünüşü':'Cədvəl görünüşü'}</button></div>`;
 if(!l.length)h+=empty('Tapılmadı. “+ İş yaz” ilə yeni müştəri əlavə edin.');
-else if(tbl)h+=`<div class="tw"><table><thead><tr><th>#</th><th>Ad</th><th>Telefon</th><th>Ünvan</th><th>Son iş</th><th>Növbəti servis</th><th>İş</th><th style="text-align:right">Borc</th></tr></thead><tbody>${l.map((c,i)=>{const x=c._,d=x.svc?daysTo(x.svc):null;return`<tr data-open="${esc(c.id)}"><td class="meta">${i+1}</td><td><b>${esc(c.name)}</b>${c.stop?' <span class="meta">(istəmir)</span>':''}</td><td class="n">${esc(c.phone||'')}</td><td>${esc(c.addr||'')}</td><td class="n">${x.last?esc(fmtD(x.last.date))+' · '+esc(x.last.type):''}</td><td class="n">${x.svc?`<span class="${d<=14&&d>=-60?'pill hot':d<-60?'pill red':''}">${esc(fmtD(x.svc))}</span>`:''}</td><td class="r">${esc(x.jobs.length)}</td><td class="r">${x.debt>0?`<span class="pill red">${esc(money(x.debt))}</span>`:''}</td></tr>`}).join('')}</tbody></table></div>`;
+else if(tbl)h+=`<div class="tw"><table><thead><tr><th>#</th><th>Ad</th><th>Telefon</th><th>Ünvan</th><th>Son iş</th><th>Növbəti servis</th><th>İş</th><th style="text-align:right">Qalıq / gecikən</th></tr></thead><tbody>${l.map((c,i)=>{const x=c._,d=x.svc?daysTo(x.svc):null;return`<tr data-open="${esc(c.id)}"><td class="meta">${i+1}</td><td><b>${esc(c.name)}</b>${c.stop?' <span class="meta">(istəmir)</span>':''}</td><td class="n">${esc(c.phone||'')}</td><td>${esc(c.addr||'')}</td><td class="n">${x.last?esc(fmtD(x.last.date))+' · '+esc(x.last.type):''}</td><td class="n">${x.svc?`<span class="${d<=14&&d>=-60?'pill hot':d<-60?'pill red':''}">${esc(fmtD(x.svc))}</span>`:''}</td><td class="r">${esc(x.jobs.length)}</td><td class="r">${x.debt>0?`<span class="pill">${esc(money(x.debt))}</span>${x.late>0?`<div><span class="pill red" style="margin-top:3px">gecikən ${esc(money(x.late))}</span></div>`:''}`:''}</td></tr>`}).join('')}</tbody></table></div>`;
 else{h+=`<div class="list">${l.slice(0,showN).map(c=>card(c,'cust')).join('')}</div>`;
 if(l.length>showN)h+=`<button class="btn ghost more" type="button" id="more">Daha çox göstər (${esc(l.length-showN)} qalıb)</button>`;}
 }else if(view==='lost'){
@@ -459,7 +463,7 @@ const c=custs.find(x=>x.id===id);if(!c)return;curC=c;const x=c._;
 const t=today();
 $('cBody').innerHTML=`<h2>${esc(c.name)}</h2>
 <div class="meta">${c.phone?`<span>${esc(c.phone)}</span>`:''}${c.phone2?`<span>${esc(c.phone2)}</span>`:''}${c.addr?`<span>${esc(c.addr)}</span>`:''}</div>
-<div class="meta">${x.svc?`<span>Növbəti servis: <b>${esc(fmtD(x.svc))}</b></span>`:c.stop?'<span>Artıq servis istəmir</span>':''}${x.debt>0?`<span class="pill red">Borc ${esc(money(x.debt))}</span>`:''}</div>
+<div class="meta">${x.svc?`<span>Növbəti servis: <b>${esc(fmtD(x.svc))}</b></span>`:c.stop?'<span>Artıq servis istəmir</span>':''}</div>${debtLine(x)}
 <div class="acts">${wa(c,'')?`<a class="btn sm wa" href="${esc(wa(c,''))}" target="_blank" rel="noopener">WhatsApp</a>`:''}${mapUrl(c)?`<a class="btn ghost sm" href="${esc(mapUrl(c))}" target="_blank" rel="noopener">📍 Xəritədə aç</a>`:''}
 ${canWrite?`<button class="btn sm" type="button" data-job="${esc(c.id)}">+ Yeni iş</button><button class="btn ghost sm" type="button" data-editc="${esc(c.id)}">Məlumatı düzəlt</button><button class="btn ghost sm" type="button" data-stop="${esc(c.id)}">${c.stop?'Yenə xatırlat':'Artıq istəmir'}</button>`:''}</div>
 ${(c.plan||[]).length?`<h2 style="font-size:17px;margin-top:6px">Kredit ödənişləri <span class="meta">— toxunun: ödədi / ödəmədi</span></h2><div class="plan">${c.plan.map((p,i)=>`<button type="button" data-pl="${i}" class="${p.ok?'ok':p.d<t?'late':''}"><span>${esc(fmtD(p.d))}${p.t?' · '+esc(p.t):''}</span><span>${p.a?esc(money(p.a)):''} ${p.ok?'✓ ödənib':p.d<t?'gecikir':'gözlənilir'}</span></button>`).join('')}</div>`:''}
