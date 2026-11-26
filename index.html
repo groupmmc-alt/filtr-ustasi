@@ -264,9 +264,16 @@ let arch=[],dbDocs=new Map(),exps=[],canWrite=true,view='today',showN=40,repM=to
 let custs=[],cf='all',cs='last',tbl=true,sb=null,me=null;
 /* maya siyahısı, ustalar — bazada xercler cədvəlində 'cfg-ayarlar' sətrində saxlanır */
 const CFG_ID='cfg-ayarlar';
-const defCfg=()=>({parts:PARTS.filter(n=>n!=='Digər').map(n=>({n,a:/kartric/.test(n)&&/^[123]-/.test(n)?5:n==='Kran'?10:'',q:n==='Kran'?10:''})).concat([{n:'Digər',a:'',q:''}]),aps:[{n:'Waterboss',m:215}],ustas:['Usta Elvin']});
+const PARTS2=['Dəst (hamısı)','3 filtr','Membran','Postkarbon','Mineralizator','Flow','Nasos','Kran','Bak','Şlanq / fitinq','Adapter','Digər'];
+const defCfg=()=>({v:2,parts:PARTS2.map(n=>({n,a:n==='3 filtr'?15:n==='Kran'?10:'',q:n==='Kran'?10:''})),aps:[{n:'Waterboss',m:215}],ustas:['Usta Elvin']});
 let CFG=defCfg();
-function normCfg(x){const d=defCfg();if(!x||typeof x!=='object')return d;return{parts:Array.isArray(x.parts)?x.parts:d.parts,aps:Array.isArray(x.aps)?x.aps:d.aps,ustas:Array.isArray(x.ustas)?x.ustas:d.ustas}}
+function normCfg(x){const d=defCfg();if(!x||typeof x!=='object')return d;let parts=Array.isArray(x.parts)?x.parts.map(p=>({...p})):d.parts;
+if(!x.v){/* köhnə siyahı: 1-2-3 kartric → '3 filtr', Flow və Dəst əlavə */
+const old=n=>/^[123]-(ci|cü) kartric$/.test(n||''),k=parts.filter(p=>old(p.n));
+if(k.length){const i=parts.findIndex(p=>old(p.n)),sm=f=>k.some(p=>num(p[f])!=null)?k.reduce((s,p)=>s+(num(p[f])??0),0):'';parts=parts.filter(p=>!old(p.n));parts.splice(i,0,{n:'3 filtr',a:sm('a'),q:sm('q')})}
+if(!parts.some(p=>p.n==='Flow')){const m=parts.findIndex(p=>p.n==='Mineralizator');parts.splice(m>=0?m+1:parts.length,0,{n:'Flow',a:'',q:''})}
+if(!parts.some(p=>/^Dəst/.test(p.n)))parts.unshift({n:'Dəst (hamısı)',a:'',q:''})}
+return{v:2,parts,aps:Array.isArray(x.aps)?x.aps:d.aps,ustas:Array.isArray(x.ustas)?x.ustas:d.ustas}}
 const num=v=>v===''||v==null||isNaN(+v)?null:+v;
 function partCost(n,at){const p=CFG.parts.find(x=>x.n===n);if(!p)return null;const a=num(p.a),q=num(p.q);return at==='qapali'?(q??a):(a??q)}
 function apCost(m){const k=String(m||'').trim().toLowerCase();if(!k)return null;const a=CFG.aps.find(x=>String(x.n).trim().toLowerCase()===k);return a?num(a.m):null}
@@ -423,7 +430,7 @@ function mayaView(){
 if(!mDraft)mDraft=JSON.parse(JSON.stringify(CFG));const D=mDraft;
 const inp=(k,v,ph,t)=>`<input data-mk="${k}" value="${esc(v??'')}" ${t?'type="number" min="0" step="0.5" inputmode="decimal"':'autocomplete="off"'} placeholder="${esc(ph||'')}">`;
 const del=(k,i)=>`<td class="x"><button type="button" class="btn ghost sm" data-mdel="${k}.${i}" aria-label="Sil">✕</button></td>`;
-return`<h2>Hissələrin mayası</h2><p class="meta" style="margin:0 0 8px">İş yazanda hissəni seçən kimi mayası avtomatik hesablanır. Açıq və qapalı aparat üçün ayrı yazın; qapalı boşdursa, açığın qiyməti götürülür.</p>
+return`<h2>Hissələrin mayası</h2><p class="meta" style="margin:0 0 8px">İş yazanda hissəni seçən kimi mayası avtomatik hesablanır. “Dəst (hamısı)” — hamısı birlikdə dəyişəndə, “3 filtr” — üç ön filtr birlikdə. Açıq və qapalı aparat üçün ayrı yazın; qapalı boşdursa, açığın qiyməti götürülür.</p>
 <div class="tw"><table class="mt"><thead><tr><th>Hissə</th><th>Açıq ₼</th><th>Qapalı ₼</th><th></th></tr></thead><tbody>${D.parts.map((p,i)=>`<tr><td>${inp('parts.'+i+'.n',p.n,'ad')}</td><td>${inp('parts.'+i+'.a',p.a,'',1)}</td><td>${inp('parts.'+i+'.q',p.q,'',1)}</td>${del('parts',i)}</tr>`).join('')}</tbody></table></div>
 <button type="button" class="btn ghost sm" data-madd="parts" style="margin-top:8px">+ Hissə əlavə et</button>
 <h2>Aparatların mayası</h2><p class="meta" style="margin:0 0 8px">Satış və ya quraşdırma yazanda “Aparat / model” sahəsində adı seçin — mayası özü əlavə olunur.</p>
@@ -439,7 +446,7 @@ $('view').addEventListener('click',async e=>{const b=e.target.closest('[data-mad
 if(b.dataset.madd){const k=b.dataset.madd;mDraft[k].push(k==='parts'?{n:'',a:'',q:''}:k==='aps'?{n:'',m:''}:'');mDirty=true;mRedraw();const ins=$('view').querySelectorAll(`[data-mk^="${k}."]`);const last=[...ins].filter(x=>x.dataset.mk.split('.')[1]==mDraft[k].length-1)[0];last?.focus();return}
 if(b.dataset.mdel){const[k,i]=b.dataset.mdel.split('.');mDraft[k].splice(+i,1);mDirty=true;mRedraw();return}
 if(b.id==='mSave'){if(!me)return toast('Daxil olmamısınız');
-const D={parts:mDraft.parts.map(p=>({n:String(p.n||'').trim(),a:num(p.a)??'',q:num(p.q)??''})).filter(p=>p.n),aps:mDraft.aps.map(a=>({n:String(a.n||'').trim(),m:num(a.m)??''})).filter(a=>a.n),ustas:mDraft.ustas.map(u=>String(u||'').trim()).filter(Boolean)};
+const D={v:2,parts:mDraft.parts.map(p=>({n:String(p.n||'').trim(),a:num(p.a)??'',q:num(p.q)??''})).filter(p=>p.n),aps:mDraft.aps.map(a=>({n:String(a.n||'').trim(),m:num(a.m)??''})).filter(a=>a.n),ustas:mDraft.ustas.map(u=>String(u||'').trim()).filter(Boolean)};
 b.disabled=true;const upd=new Date().toISOString();
 const {error}=await sb.from('xercler').upsert({id:CFG_ID,data:{...D,updated:upd},updated_at:upd},{onConflict:'id'});b.disabled=false;
 if(error)return toast('Saxlamaq alınmadı — interneti yoxlayın');
