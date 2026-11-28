@@ -125,6 +125,11 @@ label{display:grid;gap:4px;font-size:14px;color:var(--mute)}
 .msave{margin-top:18px;width:100%;height:52px;font-size:17px}
 input.bad{border:2px solid var(--warn)}
 .mig{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;margin-top:10px}
+#rcPrint{display:none}
+@media print{body>*:not(#rcPrint){display:none!important}#rcPrint{display:block!important}#rcPrint img{width:100%;max-width:150mm;display:block;margin:0 auto}@page{margin:10mm}}
+.rcb{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.rcb .btn{width:100%}
+#rImg{width:100%;border:1px solid var(--line);border-radius:12px;background:#fff;display:block}
+.ck{display:flex;gap:8px;align-items:center;color:var(--ink)}.ck input{width:22px;height:22px}
 @media(prefers-reduced-motion:reduce){.toast{transition:none}}
 </style>
 </head>
@@ -238,6 +243,22 @@ input.bad{border:2px solid var(--warn)}
 <button class="btn" type="submit">Yadda saxla</button>
 </div>
 </form></dialog>
+<dialog id="dRc"><div class="dbody">
+<h2>Müştəriyə qəbz</h2>
+<p class="meta" style="margin:0">Qəbzdə maya və ustaya verilən pul <b>görünmür</b> — yalnız müştərinin ödədiyi məbləğ.</p>
+<div class="row"><label>Başlıq<input id="rTitle" autocomplete="off"></label><label id="rAmtL">Məbləğ (₼)<input id="rAmt" type="number" min="0" step="0.5" inputmode="decimal"></label></div>
+<label class="ck"><input type="checkbox" id="rNoteOn"> Qeydi də qəbzə yaz</label>
+<textarea id="rNote" rows="2" hidden placeholder="Müştəriyə görünəcək qeyd"></textarea>
+<img id="rImg" alt="Qəbzin görünüşü">
+<div class="rcb">
+<button class="btn wa" type="button" id="rShare">📤 PDF göndər</button>
+<a class="btn wa" id="rWa" href="#" target="_blank" rel="noopener">💬 Mətn kimi WhatsApp</a>
+<button class="btn ghost" type="button" id="rPdf">⬇ PDF yüklə</button>
+<button class="btn ghost" type="button" id="rPrint">🖨 Çap et</button>
+</div>
+<div class="fbtn"><button class="btn ghost" type="button" data-close>Bağla</button></div>
+</div></dialog>
+<div id="rcPrint"><img id="rcPImg" alt=""></div>
 <div class="toast" id="toast" role="status"></div>
 
 <script>
@@ -267,7 +288,7 @@ let custs=[],cf='all',cs='last',tbl=true,sb=null,me=null;
 /* maya siyahısı, ustalar — bazada xercler cədvəlində 'cfg-ayarlar' sətrində saxlanır */
 const CFG_ID='cfg-ayarlar';
 const PARTS2=['Dəst (hamısı)','3 filtr','Membran','Postkarbon','Mineralizator','Flow','Nasos','Kran','Bak','Şlanq / fitinq','Adapter','Digər'];
-const defCfg=()=>({v:2,parts:PARTS2.map(n=>({n,a:n==='3 filtr'?15:n==='Kran'?10:'',q:n==='Kran'?10:''})),aps:[{n:'Waterboss',m:215}],ustas:['Usta Elvin']});
+const defCfg=()=>({v:2,parts:PARTS2.map(n=>({n,a:n==='3 filtr'?15:n==='Kran'?10:'',q:n==='Kran'?10:''})),aps:[{n:'Waterboss',m:215}],ustas:['Usta Elvin'],biz:{n:'Su Filtrləri',p:'',ig:'su_filtirlerri'}});
 let CFG=defCfg();
 function normCfg(x){const d=defCfg();if(!x||typeof x!=='object')return d;let parts=Array.isArray(x.parts)?x.parts.map(p=>({...p})):d.parts;
 if(!x.v){/* köhnə siyahı: 1-2-3 kartric → '3 filtr', Flow və Dəst əlavə */
@@ -275,7 +296,7 @@ const old=n=>/^[123]-(ci|cü) kartric$/.test(n||''),k=parts.filter(p=>old(p.n));
 if(k.length){const i=parts.findIndex(p=>old(p.n)),sm=f=>k.some(p=>num(p[f])!=null)?k.reduce((s,p)=>s+(num(p[f])??0),0):'';parts=parts.filter(p=>!old(p.n));parts.splice(i,0,{n:'3 filtr',a:sm('a'),q:sm('q')})}
 if(!parts.some(p=>p.n==='Flow')){const m=parts.findIndex(p=>p.n==='Mineralizator');parts.splice(m>=0?m+1:parts.length,0,{n:'Flow',a:'',q:''})}
 if(!parts.some(p=>/^Dəst/.test(p.n)))parts.unshift({n:'Dəst (hamısı)',a:'',q:''})}
-return{v:2,parts,aps:Array.isArray(x.aps)?x.aps:d.aps,ustas:Array.isArray(x.ustas)?x.ustas:d.ustas}}
+return{v:2,parts,aps:Array.isArray(x.aps)?x.aps:d.aps,ustas:Array.isArray(x.ustas)?x.ustas:d.ustas,biz:x.biz&&typeof x.biz==='object'?{...d.biz,...x.biz}:d.biz}}
 const num=v=>v===''||v==null||isNaN(+v)?null:+v;
 function partCost(n,at){const p=CFG.parts.find(x=>x.n===n);if(!p)return null;const a=num(p.a),q=num(p.q);return at==='qapali'?(q??a):(a??q)}
 function apFind(m){const k=String(m||'').trim().toLowerCase();return k?CFG.aps.find(x=>String(x.n).trim().toLowerCase()===k)||null:null}
@@ -438,7 +459,7 @@ ${canWrite?`<button class="btn" type="button" id="addExp" style="margin-bottom:1
 /* ---------- maya siyahısı ---------- */
 let mDraft=null,mDirty=false;
 function mayaView(){
-if(!mDraft)mDraft=JSON.parse(JSON.stringify(CFG));const D=mDraft;
+if(!mDraft)mDraft=JSON.parse(JSON.stringify(CFG));const D=mDraft;if(!D.biz)D.biz={n:'',p:'',ig:''};
 const inp=(k,v,ph,t)=>`<input data-mk="${k}" value="${esc(v??'')}" ${t?'type="number" min="0" step="0.5" inputmode="decimal"':'autocomplete="off"'} placeholder="${esc(ph||'')}">`;
 const del=(k,i)=>`<td class="x"><button type="button" class="btn ghost sm" data-mdel="${k}.${i}" aria-label="Sil">✕</button></td>`;
 return`<h2>Hissələrin mayası</h2><p class="meta" style="margin:0 0 8px">İş yazanda hissəni seçən kimi mayası avtomatik hesablanır. “Dəst (hamısı)” — hamısı birlikdə dəyişəndə, “3 filtr” — üç ön filtr birlikdə. Açıq və qapalı aparat üçün ayrı yazın; qapalı boşdursa, açığın qiyməti götürülür.</p>
@@ -450,6 +471,7 @@ return`<h2>Hissələrin mayası</h2><p class="meta" style="margin:0 0 8px">İş 
 <h2>Ustalar</h2><p class="meta" style="margin:0 0 8px">İşi başqa usta görəndə ona verilən pul rasxod kimi hesabata düşür.</p>
 <div class="tw"><table class="mt"><tbody>${D.ustas.map((u,i)=>`<tr><td>${inp('ustas.'+i,u,'məs. Usta Elvin')}</td>${del('ustas',i)}</tr>`).join('')}</tbody></table></div>
 <button type="button" class="btn ghost sm" data-madd="ustas" style="margin-top:8px">+ Usta əlavə et</button>
+<h2>Qəbz başlığı</h2><p class="meta" style="margin:0 0 8px">Müştəriyə göndərilən qəbzin yuxarısında yazılır.</p><div class="row"><label>Ad / firma${inp('biz.n',D.biz.n,'məs. Su Filtrləri')}</label><label>Telefon${inp('biz.p',D.biz.p,'050 000 00 00')}</label></div><label>Instagram${inp('biz.ig',D.biz.ig,'su_filtirlerri')}</label>
 ${canWrite?'<button type="button" class="btn msave" id="mSave">Yadda saxla</button>':''}`}
 function mRedraw(){$('view').innerHTML=mayaView()}
 $('view').addEventListener('input',e=>{const k=e.target.dataset?.mk;if(!k||!mDraft)return;const a=k.split('.');let o=mDraft;for(let i=0;i<a.length-1;i++)o=o[a[i]];o[a[a.length-1]]=e.target.value;mDirty=true});
@@ -457,7 +479,7 @@ $('view').addEventListener('click',async e=>{const b=e.target.closest('[data-mad
 if(b.dataset.madd){const k=b.dataset.madd;mDraft[k].push(k==='parts'?{n:'',a:'',q:''}:k==='aps'?{n:'',m:'',s:''}:'');mDirty=true;mRedraw();const ins=$('view').querySelectorAll(`[data-mk^="${k}."]`);const last=[...ins].filter(x=>x.dataset.mk.split('.')[1]==mDraft[k].length-1)[0];last?.focus();return}
 if(b.dataset.mdel){const[k,i]=b.dataset.mdel.split('.');mDraft[k].splice(+i,1);mDirty=true;mRedraw();return}
 if(b.id==='mSave'){if(!me)return toast('Daxil olmamısınız');
-const D={v:2,parts:mDraft.parts.map(p=>({n:String(p.n||'').trim(),a:num(p.a)??'',q:num(p.q)??''})).filter(p=>p.n),aps:mDraft.aps.map(a=>({n:String(a.n||'').trim(),m:num(a.m)??'',s:num(a.s)??''})).filter(a=>a.n),ustas:mDraft.ustas.map(u=>String(u||'').trim()).filter(Boolean)};
+const D={v:2,parts:mDraft.parts.map(p=>({n:String(p.n||'').trim(),a:num(p.a)??'',q:num(p.q)??''})).filter(p=>p.n),aps:mDraft.aps.map(a=>({n:String(a.n||'').trim(),m:num(a.m)??'',s:num(a.s)??''})).filter(a=>a.n),ustas:mDraft.ustas.map(u=>String(u||'').trim()).filter(Boolean),biz:{n:String(mDraft.biz?.n||'').trim(),p:String(mDraft.biz?.p||'').trim(),ig:String(mDraft.biz?.ig||'').trim()}};
 b.disabled=true;const upd=new Date().toISOString();
 const {error}=await sb.from('xercler').upsert({id:CFG_ID,data:{...D,updated:upd},updated_at:upd},{onConflict:'id'});b.disabled=false;
 if(error)return toast('Saxlamaq alınmadı — interneti yoxlayın');
@@ -473,11 +495,11 @@ $('cBody').innerHTML=`<h2>${esc(c.name)}</h2>
 <div class="meta">${x.svc?`<span>Növbəti servis: <b>${esc(fmtD(x.svc))}</b></span>`:c.stop?'<span>Artıq servis istəmir</span>':''}</div>${debtLine(x)}
 <div class="acts">${wa(c,'')?`<a class="btn sm wa" href="${esc(wa(c,''))}" target="_blank" rel="noopener">WhatsApp</a>`:''}${mapUrl(c)?`<a class="btn ghost sm" href="${esc(mapUrl(c))}" target="_blank" rel="noopener">📍 Xəritədə aç</a>`:''}
 ${canWrite?`<button class="btn sm" type="button" data-job="${esc(c.id)}">+ Yeni iş</button><button class="btn ghost sm" type="button" data-editc="${esc(c.id)}">Məlumatı düzəlt</button><button class="btn ghost sm" type="button" data-stop="${esc(c.id)}">${c.stop?'Yenə xatırlat':'Artıq istəmir'}</button>`:''}</div>
-${(c.plan||[]).length?`<h2 style="font-size:17px;margin-top:6px">Kredit ödənişləri <span class="meta">— toxunun: ödədi / ödəmədi</span></h2>${canWrite?`<div><button class="btn ghost sm" type="button" data-pedit="${esc(c.id)}">✎ Qrafiki düzəlt (tarix, məbləğ)</button></div>`:''}<div class="plan">${c.plan.map((p,i)=>`<div class="pr"><button type="button" data-pl="${i}" class="${p.ok?'ok':p.d<t?'late':''}"><span>${esc(fmtD(p.d))}${p.t?' · '+esc(p.t):''}</span><span>${p.a?esc(money(p.a)):''} ${p.ok?'✓ ödənib':p.d<t?'gecikir':'gözlənilir'}</span></button>${canWrite&&!p.ok?`<button class="btn ghost sm" type="button" data-plmv="${i}" title="Bu ayın pulunu növbəti aya əlavə et">→ gələn aya</button>`:''}</div>`).join('')}</div>`:''}
+${(c.plan||[]).length?`<h2 style="font-size:17px;margin-top:6px">Kredit ödənişləri <span class="meta">— toxunun: ödədi / ödəmədi</span></h2>${canWrite?`<div><button class="btn ghost sm" type="button" data-pedit="${esc(c.id)}">✎ Qrafiki düzəlt (tarix, məbləğ)</button></div>`:''}<div class="plan">${c.plan.map((p,i)=>`<div class="pr"><button type="button" data-pl="${i}" class="${p.ok?'ok':p.d<t?'late':''}"><span>${esc(fmtD(p.d))}${p.t?' · '+esc(p.t):''}</span><span>${p.a?esc(money(p.a)):''} ${p.ok?'✓ ödənib':p.d<t?'gecikir':'gözlənilir'}</span></button>${canWrite&&!p.ok?`<button class="btn ghost sm" type="button" data-plmv="${i}" title="Bu ayın pulunu növbəti aya əlavə et">→ gələn aya</button>`:''}${p.ok?`<button class="btn ghost sm" type="button" data-rcp="${i}" title="Ödəniş qəbzi">🧾 Qəbz</button>`:''}</div>`).join('')}</div>`:''}
 <h2 style="font-size:17px;margin-top:6px">Görülən işlər (${esc(x.jobs.length)})</h2>
-<div class="hist">${x.jobs.map(j=>`<div class="j"><b>${esc(fmtD(j.date))} · ${esc(j.type)}</b>${j.price?` · ${esc(money(j.price))}`:''}${j.cost?` <span class="meta" style="display:inline">(maya ${esc(money(j.cost))})</span>`:''}${j.pay==='borc'&&!j.paid?' <span class="pill red">borc</span>':''}
+<div class="hist">${x.jobs.map((j,ji)=>`<div class="j"><b>${esc(fmtD(j.date))} · ${esc(j.type)}</b>${j.price?` · ${esc(money(j.price))}`:''}${j.cost?` <span class="meta" style="display:inline">(maya ${esc(money(j.cost))})</span>`:''}${j.pay==='borc'&&!j.paid?' <span class="pill red">borc</span>':''}
 <div class="meta">${j.parts?.length?`<span>Dəyişdi: ${esc(j.parts.join(', '))}</span>`:''}${j.model?`<span>${esc(j.model)}</span>`:''}${j.atype?`<span>${j.atype==='qapali'?'Qapalı':'Açıq'} aparat</span>`:''}${j.usta?`<span>Gördü: ${esc(j.usta)}${j.ustaPay?' ('+esc(money(j.ustaPay))+')':''}</span>`:''}${j.next?`<span>Növbəti: ${esc(fmtD(j.next))}</span>`:''}</div>${j.note?`<div class="meta">${esc(j.note)}</div>`:''}
-${canWrite?`<div class="acts"><button class="btn ghost sm" type="button" data-ej="${esc(j.id||'')}" data-ed="${esc(j.date)}" data-et="${esc(j.type)}">Düzəlt</button>${j.pay==='borc'&&!j.paid?`<button class="btn sm" type="button" data-jpaid="${esc(j.id||'')}">Borcu ödədi</button>`:''}</div>`:''}</div>`).join('')||empty('Hələ iş yoxdur.')}</div>
+<div class="acts"><button class="btn sm wa" type="button" data-rcj="${ji}">🧾 Qəbz</button>${canWrite?`<button class="btn ghost sm" type="button" data-ej="${esc(j.id||'')}" data-ed="${esc(j.date)}" data-et="${esc(j.type)}">Düzəlt</button>${j.pay==='borc'&&!j.paid?`<button class="btn sm" type="button" data-jpaid="${esc(j.id||'')}">Borcu ödədi</button>`:''}`:''}</div></div>`).join('')||empty('Hələ iş yoxdur.')}</div>
 <div class="fbtn"><button class="btn ghost" type="button" data-close>Bağla</button></div>`;
 if(!$('dCust').open)$('dCust').showModal();
 }
@@ -596,7 +618,7 @@ $('iDel').onclick=async()=>{if($('iDel').textContent!=='Əminsiniz? Sil'){$('iDe
 }
 
 /* ---------- clicks ---------- */
-document.addEventListener('click',async e=>{const b=e.target.closest('[data-open],[data-job],[data-snooze],[data-paid],[data-pl],[data-stop],[data-editc],[data-back],[data-ej],[data-jpaid],[data-plmv],[data-pedit],[data-close],[data-mon],[data-exp],[data-cf],[data-rm],[data-rnow],#tbl,#more,#addExp');if(!b)return;
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-open],[data-job],[data-snooze],[data-paid],[data-pl],[data-stop],[data-editc],[data-back],[data-ej],[data-jpaid],[data-plmv],[data-pedit],[data-rcj],[data-rcp],[data-close],[data-mon],[data-exp],[data-cf],[data-rm],[data-rnow],#tbl,#more,#addExp');if(!b)return;
 const d=b.dataset;
 if(d.cf){cf=d.cf;showN=40;render();return}
 if(b.id==='tbl'){tbl=!tbl;render();return}
@@ -607,6 +629,8 @@ if(d.exp){openExp(exps.find(x=>x.id===d.exp));return}
 if(d.rm){repMode=d.rm;render();return}
 if(d.rnow){if(repMode==='week')repW=weekStart(today());else repM=today().slice(0,7);render();return}
 if(d.mon){if(repMode==='week'){repW=addDays(repW,7*(+d.mon));render();return}const[y,m]=repM.split('-').map(Number);const x=new Date(y,m-1+(+d.mon),1);repM=x.getFullYear()+'-'+pad(x.getMonth()+1);render();return}
+if(d.rcj!==undefined){const j=curC?._.jobs[+d.rcj];if(j)openRc(rcJob(curC,j));return}
+if(d.rcp!==undefined){openRc(rcPay(curC,+d.rcp));return}
 if(d.open){openCust(d.open);return}
 if(d.back){openCust(d.back);return}
 if(d.job){openJob(d.job);return}
@@ -616,8 +640,8 @@ if(d.ej!==undefined){const c=getC(curC.id);const j=c.jobs.find(x=>(d.ej&&x.id===
 const id=d.snooze||d.paid||d.stop||(d.pl!==undefined||d.jpaid!==undefined||d.plmv!==undefined?curC.id:'');const c=getC(id);if(!c)return;c.id=id;
 if(d.snooze){c.snooze=addDays(today(),7);await saveCust(c).then(()=>toast('Yaxşı — 7 gün sonra yenə xatırladacaq')).catch(()=>{})}
 else if(d.paid){const p=(c.plan||[]).filter(p=>!p.ok).sort((a,b)=>a.d.localeCompare(b.d))[0];
-if(p){p.ok=true;p.on=today()}else{const j=(c.jobs||[]).find(j=>j.pay==='borc'&&!j.paid);if(j){j.paid=true;j.paidOn=today()}}
-delete c.snooze;await saveCust(c).then(()=>toast('Ödəniş qeyd olundu')).catch(()=>{})}
+let pi=-1,jid=null;if(p){p.ok=true;p.on=today();pi=c.plan.indexOf(p)}else{const j=(c.jobs||[]).find(j=>j.pay==='borc'&&!j.paid);if(j){j.paid=true;j.paidOn=today();jid=j.id}}
+delete c.snooze;await saveCust(c).then(()=>{toast('Ödəniş qeyd olundu');const cc=custs.find(x=>x.id===id);if(cc)openRc(pi>=0?rcPay(cc,pi):rcJob(cc,cc._.jobs.find(x=>x.id===jid)))}).catch(()=>{})}
 else if(d.stop){c.stop=!c.stop;await saveCust(c).catch(()=>{});openCust(id)}
 else if(d.pl!==undefined){const p=c.plan[+d.pl];p.ok=!p.ok;if(p.ok)p.on=today();else delete p.on;await saveCust(c).catch(()=>{});openCust(id)}
 else if(d.plmv!==undefined){const i=+d.plmv,p=c.plan[i];if(!p||p.ok)return;
@@ -627,7 +651,7 @@ if(j>=0){c.plan[j].a=(+c.plan[j].a||0)+amt;c.plan[j].t=((c.plan[j].t?c.plan[j].t
 else{let nd=addMonths(p.d,1);while(nd<today())nd=addMonths(nd,1);c.plan.push({d:nd,a:amt,ok:false,t:'+'+fmtD(p.d)+' ayı'});msg=money(amt)+' gələn aya keçirildi'}
 c.plan.splice(i,1);c.plan.sort((a,b)=>a.d.localeCompare(b.d));delete c.snooze;
 await saveCust(c).then(()=>toast(msg)).catch(()=>{});openCust(id)}
-else if(d.jpaid!==undefined){const j=c.jobs.find(x=>x.id===d.jpaid);if(j){j.paid=true;j.paidOn=today()}await saveCust(c).catch(()=>{});openCust(id)}
+else if(d.jpaid!==undefined){const j=c.jobs.find(x=>x.id===d.jpaid);if(j){j.paid=true;j.paidOn=today()}await saveCust(c).catch(()=>{});openCust(id);{const cc=custs.find(x=>x.id===id),jj=cc?._.jobs.find(x=>x.id===d.jpaid);if(jj)openRc(rcJob(cc,jj))}}
 });
 
 let leaveAsk=0;function confirmLeave(){if(Date.now()-leaveAsk<4000)return true;leaveAsk=Date.now();toast('Maya siyahısında dəyişiklik saxlanmayıb. Çıxmaq üçün yenə basın.');return false}
@@ -639,6 +663,77 @@ const o={date:$('eDate').value,amt:+$('eAmt').value,cat:$('eCat').value,note:$('
 const id=eEdit?.id||'e'+uid();const {error}=await sb.from('xercler').upsert({id,data:o,updated_at:o.updated},{onConflict:'id'});
 if(error)return toast('Saxlamaq alınmadı');exps=exps.filter(x=>x.id!==id).concat({id,...o});cacheSave();render();$('dExp').close();toast('Xərc yazıldı')});
 $('eDel').addEventListener('click',async()=>{if($('eDel').textContent==='Sil'){$('eDel').textContent='Əminsiniz? Sil';return}const {error}=await sb.from('xercler').delete().eq('id',eEdit.id);if(error)return toast('Silmək alınmadı');exps=exps.filter(x=>x.id!==eEdit.id);cacheSave();render();$('dExp').close()});
+
+/* ---------- qəbz (müştəriyə: maya görünmür) ---------- */
+const sumA=a=>a.reduce((s,p)=>s+(+p.a||0),0);
+function rcCust(c){return{name:c.name||'',phone:c.phone||'',addr:c.addr||''}}
+function rcJob(c,j){if(!c||!j)return null;const sale=isSale(j),L=[['Görülən iş',j.type||'']];
+if(j.parts?.length)L.push(['Dəyişdirilən hissələr',j.parts.join(', ')]);
+if(j.model)L.push(['Aparat / model',j.model]);
+let P;
+if(isCred(j)){const pl=c.plan||[],un=pl.filter(p=>!p.ok).sort((a,b)=>a.d.localeCompare(b.d));P=[['Ödəniş','Kreditlə (hissə-hissə)'],['İndiyədək ödənilib',money(sumA(pl.filter(p=>p.ok)))],['Qalıq borc',money(sumA(un))]];if(un[0])P.push(['Növbəti ödəniş',fmtD(un[0].d)+' · '+money(un[0].a)])}
+else if(j.pay==='borc'&&!j.paid)P=[['Ödəniş','Ödənilməyib (borc)']];
+else P=[['Ödəniş','Ödənildi ✓'+(j.paidOn&&j.paidOn!==j.date?' · '+fmtD(j.paidOn):'')]];
+return{kind:sale?'Satış qəbzi':'Servis qəbzi',no:(j.date||'').replace(/-/g,'').slice(2)+'-'+String(j.id||'1').slice(-3).toUpperCase(),date:j.date,cust:rcCust(c),lines:L,amtL:sale?'Satış məbləği':'Məbləğ',amt:j.price,pay:P,next:j.next||'',note:j.note||''}}
+function rcPay(c,i){const pl=c?.plan||[],p=pl[i];if(!p)return null;const un=pl.filter(q=>!q.ok).sort((a,b)=>a.d.localeCompare(b.d));
+const P=[['Qalan borc',money(sumA(un))]];if(un[0])P.push(['Növbəti ödəniş',fmtD(un[0].d)+' · '+money(un[0].a)]);else P.push(['Vəziyyət','Kredit tam ödənildi ✓']);
+return{kind:'Ödəniş qəbzi',no:(p.on||p.d).replace(/-/g,'').slice(2)+'-'+pad(i+1),date:p.on||p.d,cust:rcCust(c),lines:[['Ödəniş növü','Kredit üzrə aylıq ödəniş'],['Hansı ayın ödənişi',fmtD(p.d)]],amtL:'Alınan məbləğ',amt:p.a,pay:P,next:'',note:''}}
+function rcDraw(r){const W=1240,X=90,F='Rubik, system-ui, sans-serif',B=CFG.biz||{};
+const cv=document.createElement('canvas');cv.width=W;cv.height=5000;const g=cv.getContext('2d');
+g.fillStyle='#fff';g.fillRect(0,0,W,5000);
+const fnt=(s,w)=>g.font=`${w||400} ${s}px ${F}`;
+const t=(s,x,y,sz,w,col,al)=>{fnt(sz,w);g.fillStyle=col||'#10262a';g.textAlign=al||'left';g.fillText(s,x,y)};
+const wrap=(s,sz,w,mw)=>{fnt(sz,w);const out=[];for(const para of String(s).split('\n')){let ln='';for(const wd of para.split(' ')){const tr=ln?ln+' '+wd:wd;if(g.measureText(tr).width>mw&&ln){out.push(ln);ln=wd}else ln=tr}out.push(ln)}return out};
+const rr=(x,y,w,h,rad,col)=>{g.fillStyle=col;g.beginPath();if(g.roundRect)g.roundRect(x,y,w,h,rad);else g.rect(x,y,w,h);g.fill()};
+const line=y=>{g.fillStyle='#dde6e6';g.fillRect(X,y,W-2*X,2)};
+g.fillStyle='#0b5c6b';g.fillRect(0,0,W,230);
+t(B.n||'Su Filtrləri',X,112,64,700,'#fff');
+const sub=[B.p,B.ig?'Instagram: @'+String(B.ig).replace(/^@/,''):''].filter(Boolean).join('   ·   ');
+if(sub)t(sub,X,175,34,400,'rgba(255,255,255,.88)');
+let y=330;t(r.kind||'Qəbz',X,y,58,700,'#0b5c6b');
+t('№ '+(r.no||''),W-X,y-36,32,500,'#5a6f72','right');t(fmtD(r.date),W-X,y+8,34,600,'#10262a','right');
+y+=50;line(y);y+=62;
+t('MÜŞTƏRİ',X,y,26,600,'#5a6f72');y+=54;
+for(const s of wrap(r.cust.name,44,600,W-2*X)){t(s,X,y,44,600);y+=54}
+const cl=[r.cust.phone,r.cust.addr].filter(Boolean).join('  ·  ');if(cl)for(const s of wrap(cl,32,400,W-2*X)){t(s,X,y,32,400,'#5a6f72');y+=44}
+y+=20;line(y);y+=20;
+const kv=(k,v,hi)=>{const vw=W-2*X-430,ls=wrap(v,34,500,vw),h=Math.max(1,ls.length)*46+34;if(hi)rr(X-20,y,W-2*X+40,h,16,'#e3f1f3');
+t(k,X,y+56,30,400,'#5a6f72');ls.forEach((s,i)=>t(s,X+430,y+56+i*46,34,hi?700:500,hi?'#0b5c6b':'#10262a'));y+=h};
+for(const[k,v]of r.lines)kv(k,v);
+y+=24;rr(X-20,y,W-2*X+40,150,22,'#0b5c6b');t(r.amtL||'Məbləğ',X+20,y+92,38,500,'#fff');t(r.amt!=null&&r.amt!==''?money(r.amt):'—',W-X-20,y+100,70,700,'#fff','right');y+=180;
+for(const[k,v]of r.pay)kv(k,v);
+if(r.next)kv('Növbəti servis',fmtD(r.next),1);
+if(r.note){y+=10;t('Qeyd',X,y+40,28,600,'#5a6f72');y+=56;for(const s of wrap(r.note,32,400,W-2*X)){t(s,X,y+30,32);y+=44}}
+y+=50;line(y);y+=90;
+t('Təşəkkür edirik! Sağlam su ilə!',W/2,y,38,600,'#0b5c6b','center');y+=56;
+t('Bu qəbz '+(B.n||'Su Filtrləri')+' tərəfindən verilib · '+fmtD(today()),W/2,y,26,400,'#5a6f72','center');y+=80;
+const o=document.createElement('canvas');o.width=W;o.height=Math.ceil(y);o.getContext('2d').drawImage(cv,0,0);return o}
+async function toPdf(cv){const W=cv.width,H=cv.height,img=new Uint8Array(await(await new Promise(r=>cv.toBlob(r,'image/jpeg',.92))).arrayBuffer());
+const pw=420,ph=+(pw*H/W).toFixed(2),en=new TextEncoder(),parts=[],off=[];let len=0;
+const add=x=>{const b=typeof x==='string'?en.encode(x):x;parts.push(b);len+=b.length};
+const obj=(n,s)=>{off[n]=len;add(n+' 0 obj\n'+s+'\nendobj\n')};
+add('%PDF-1.4\n');obj(1,'<</Type/Catalog/Pages 2 0 R>>');obj(2,'<</Type/Pages/Kids[3 0 R]/Count 1>>');
+obj(3,`<</Type/Page/Parent 2 0 R/MediaBox[0 0 ${pw} ${ph}]/Resources<</XObject<</Im0 4 0 R>>>>/Contents 5 0 R>>`);
+off[4]=len;add(`4 0 obj\n<</Type/XObject/Subtype/Image/Width ${W}/Height ${H}/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${img.length}>>\nstream\n`);add(img);add('\nendstream\nendobj\n');
+const cs=`q ${pw} 0 0 ${ph} 0 0 cm /Im0 Do Q`;obj(5,`<</Length ${cs.length}>>\nstream\n${cs}\nendstream`);
+const xo=len;let x='xref\n0 6\n0000000000 65535 f \n';for(let i=1;i<=5;i++)x+=String(off[i]).padStart(10,'0')+' 00000 n \n';
+add(x+`trailer\n<</Size 6/Root 1 0 R>>\nstartxref\n${xo}\n%%EOF\n`);return new Blob(parts,{type:'application/pdf'})}
+let R=null,rCv=null;
+const rCur=()=>({...R,kind:$('rTitle').value.trim()||R.kind,amt:$('rAmt').value===''?null:+$('rAmt').value,note:$('rNoteOn').checked?$('rNote').value.trim():''});
+function rText(r){const B=CFG.biz||{};const a=[`*${r.kind}* № ${r.no}`,'Tarix: '+fmtD(r.date),'Müştəri: '+r.cust.name,...r.lines.map(([k,v])=>k+': '+v),`*${r.amtL}: ${r.amt!=null?money(r.amt):'—'}*`,...r.pay.map(([k,v])=>k+': '+v),r.next?'Növbəti servis: '+fmtD(r.next):'',r.note?'Qeyd: '+r.note:'','Təşəkkür edirik! — '+(B.n||'Su Filtrləri')+(B.p?' · '+B.p:'')].filter(Boolean);a.splice(a.length-1,0,'');return a.join('\n')}
+function rWaUrl(r,txt){const n=intl(r.cust.phone);return'https://wa.me/'+(n||'')+'?text='+encodeURIComponent(txt)}
+function rDraw(){if(!R)return;const r=rCur();rCv=rcDraw(r);$('rImg').src=rCv.toDataURL('image/jpeg',.9);$('rWa').href=rWaUrl(r,rText(r))}
+async function openRc(r){if(!r)return;R=r;$('rTitle').value=r.kind;$('rAmt').value=r.amt??'';$('rAmtL').firstChild.textContent=r.amtL+' (₼)';$('rNote').value=r.note||'';$('rNoteOn').checked=false;$('rNote').hidden=true;
+try{await document.fonts.ready}catch{}rDraw();if(!$('dRc').open)$('dRc').showModal()}
+const rName=r=>('Qebz-'+r.cust.name+'-'+fmtD(r.date)).replace(/[\\/:*?"<>|\s]+/g,'_')+'.pdf';
+function rDl(f){const u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download=f.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
+['rTitle','rAmt','rNote'].forEach(i=>$(i).addEventListener('input',rDraw));
+$('rNoteOn').addEventListener('change',()=>{$('rNote').hidden=!$('rNoteOn').checked;rDraw()});
+$('rPdf').addEventListener('click',async()=>{const r=rCur();rDl(new File([await toPdf(rCv)],rName(r),{type:'application/pdf'}));toast('PDF yükləndi ✓')});
+$('rShare').addEventListener('click',async()=>{const r=rCur(),f=new File([await toPdf(rCv)],rName(r),{type:'application/pdf'});
+if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:r.kind})}catch{}return}
+rDl(f);window.open(rWaUrl(r,'Salam, '+r.cust.name+'! '+r.kind+' əlavə olunur.'),'_blank');toast('PDF yükləndi — WhatsApp-da 📎 basıb faylı əlavə edin')});
+$('rPrint').addEventListener('click',()=>{const im=$('rcPImg');im.onload=()=>{im.onload=null;setTimeout(()=>window.print(),50)};im.src=rCv.toDataURL('image/jpeg',.95)});
 
 /* ---------- nav ---------- */
 function setView(v){if(view==='maya'&&v!=='maya'&&mDirty&&!confirmLeave())return;if(v!=='maya'){mDraft=null;mDirty=false}view=v;showN=40;document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===v));render();window.scrollTo(0,0)}
