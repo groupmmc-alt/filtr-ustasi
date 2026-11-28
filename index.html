@@ -126,9 +126,9 @@ label{display:grid;gap:4px;font-size:14px;color:var(--mute)}
 input.bad{border:2px solid var(--warn)}
 .mig{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;margin-top:10px}
 #rcPrint{display:none}
-@media print{body>*:not(#rcPrint){display:none!important}#rcPrint{display:block!important}#rcPrint img{width:100%;max-width:150mm;display:block;margin:0 auto}@page{margin:10mm}}
+@media print{body>*:not(#rcPrint){display:none!important}#rcPrint{display:block!important}#rcPrint img{width:100%;max-width:80mm;display:block;margin:0 auto}@page{margin:10mm}}
 .rcb{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.rcb .btn{width:100%}
-#rImg{width:100%;border:1px solid var(--line);border-radius:12px;background:#fff;display:block}
+#rImg{width:100%;max-width:340px;margin:0 auto;border:1px solid var(--line);border-radius:12px;background:#fff;display:block}
 .ck{display:flex;gap:8px;align-items:center;color:var(--ink)}.ck input{width:22px;height:22px}
 @media(prefers-reduced-motion:reduce){.toast{transition:none}}
 </style>
@@ -678,38 +678,49 @@ return{kind:sale?'Satış qəbzi':'Servis qəbzi',no:(j.date||'').replace(/-/g,'
 function rcPay(c,i){const pl=c?.plan||[],p=pl[i];if(!p)return null;const un=pl.filter(q=>!q.ok).sort((a,b)=>a.d.localeCompare(b.d));
 const P=[['Qalan borc',money(sumA(un))]];if(un[0])P.push(['Növbəti ödəniş',fmtD(un[0].d)+' · '+money(un[0].a)]);else P.push(['Vəziyyət','Kredit tam ödənildi ✓']);
 return{kind:'Ödəniş qəbzi',no:(p.on||p.d).replace(/-/g,'').slice(2)+'-'+pad(i+1),date:p.on||p.d,cust:rcCust(c),lines:[['Ödəniş növü','Kredit üzrə aylıq ödəniş'],['Hansı ayın ödənişi',fmtD(p.d)]],amtL:'Alınan məbləğ',amt:p.a,pay:P,next:'',note:''}}
-function rcDraw(r){const W=1240,X=90,F='Rubik, system-ui, sans-serif',B=CFG.biz||{};
-const cv=document.createElement('canvas');cv.width=W;cv.height=5000;const g=cv.getContext('2d');
-g.fillStyle='#fff';g.fillRect(0,0,W,5000);
-const fnt=(s,w)=>g.font=`${w||400} ${s}px ${F}`;
-const t=(s,x,y,sz,w,col,al)=>{fnt(sz,w);g.fillStyle=col||'#10262a';g.textAlign=al||'left';g.fillText(s,x,y)};
-const wrap=(s,sz,w,mw)=>{fnt(sz,w);const out=[];for(const para of String(s).split('\n')){let ln='';for(const wd of para.split(' ')){const tr=ln?ln+' '+wd:wd;if(g.measureText(tr).width>mw&&ln){out.push(ln);ln=wd}else ln=tr}out.push(ln)}return out};
-const rr=(x,y,w,h,rad,col)=>{g.fillStyle=col;g.beginPath();if(g.roundRect)g.roundRect(x,y,w,h,rad);else g.rect(x,y,w,h);g.fill()};
-const line=y=>{g.fillStyle='#dde6e6';g.fillRect(X,y,W-2*X,2)};
-g.fillStyle='#0b5c6b';g.fillRect(0,0,W,230);
-t(B.n||'Su Filtrləri',X,112,64,700,'#fff');
-const sub=[B.p,B.ig?'Instagram: @'+String(B.ig).replace(/^@/,''):''].filter(Boolean).join('   ·   ');
-if(sub)t(sub,X,175,34,400,'rgba(255,255,255,.88)');
-let y=330;t(r.kind||'Qəbz',X,y,58,700,'#0b5c6b');
-t('№ '+(r.no||''),W-X,y-36,32,500,'#5a6f72','right');t(fmtD(r.date),W-X,y+8,34,600,'#10262a','right');
-y+=50;line(y);y+=62;
-t('MÜŞTƏRİ',X,y,26,600,'#5a6f72');y+=54;
-for(const s of wrap(r.cust.name,44,600,W-2*X)){t(s,X,y,44,600);y+=54}
-const cl=[r.cust.phone,r.cust.addr].filter(Boolean).join('  ·  ');if(cl)for(const s of wrap(cl,32,400,W-2*X)){t(s,X,y,32,400,'#5a6f72');y+=44}
-y+=20;line(y);y+=20;
-const kv=(k,v,hi)=>{const vw=W-2*X-430,ls=wrap(v,34,500,vw),h=Math.max(1,ls.length)*46+34;if(hi)rr(X-20,y,W-2*X+40,h,16,'#e3f1f3');
-t(k,X,y+56,30,400,'#5a6f72');ls.forEach((s,i)=>t(s,X+430,y+56+i*46,34,hi?700:500,hi?'#0b5c6b':'#10262a'));y+=h};
-for(const[k,v]of r.lines)kv(k,v);
-y+=24;rr(X-20,y,W-2*X+40,150,22,'#0b5c6b');t(r.amtL||'Məbləğ',X+20,y+92,38,500,'#fff');t(r.amt!=null&&r.amt!==''?money(r.amt):'—',W-X-20,y+100,70,700,'#fff','right');y+=180;
-for(const[k,v]of r.pay)kv(k,v);
-if(r.next)kv('Növbəti servis',fmtD(r.next),1);
-if(r.note){y+=10;t('Qeyd',X,y+40,28,600,'#5a6f72');y+=56;for(const s of wrap(r.note,32,400,W-2*X)){t(s,X,y+30,32);y+=44}}
-y+=50;line(y);y+=90;
-t('Təşəkkür edirik! Sağlam su ilə!',W/2,y,38,600,'#0b5c6b','center');y+=56;
-t('Bu qəbz '+(B.n||'Su Filtrləri')+' tərəfindən verilib · '+fmtD(today()),W/2,y,26,400,'#5a6f72','center');y+=80;
+function rcDraw(r){const W=640,X=34,IW=W-2*X,M="'Courier New', ui-monospace, Menlo, Consolas, monospace",B=CFG.biz||{},K='#111';
+const cv=document.createElement('canvas');cv.width=W;cv.height=6000;const g=cv.getContext('2d');
+g.fillStyle='#fff';g.fillRect(0,0,W,6000);
+const fnt=(s,b)=>g.font=`${b?700:400} ${s}px ${M}`;
+const t=(s,x,y,sz,b,al)=>{fnt(sz,b);g.fillStyle=K;g.textAlign=al||'left';g.fillText(s,x,y)};
+const wrap=(s,sz,b,mw)=>{fnt(sz,b);const out=[];for(const para of String(s).split('\n')){let ln='';for(const wd of para.split(' ')){const tr=ln?ln+' '+wd:wd;if(g.measureText(tr).width>mw&&ln){out.push(ln);ln=wd}else ln=tr}out.push(ln)}return out};
+let y=0;
+const dash=(ch)=>{fnt(24);const cw=g.measureText(ch||'-').width,n=Math.floor(IW/cw);y+=10;t((ch||'-').repeat(n),W/2,y+14,24,0,'center');y+=30};
+const ctr=(s,sz,b)=>{for(const l of wrap(s,sz,b,IW)){y+=sz+8;t(l,W/2,y,sz,b,'center')}};
+const kv=(k,v,sz,b)=>{sz=sz||26;fnt(sz,b);const kw=g.measureText(k).width;const vs=String(v??'');
+if(kw+g.measureText(vs).width+24<=IW){y+=sz+10;t(k,X,y,sz,b);t(vs,W-X,y,sz,b,'right')}
+else{y+=sz+10;for(const l of wrap(k,sz,b,IW)){t(l,X,y,sz,b);y+=sz+6}y-=sz+6;for(const l of wrap(vs,sz,b,IW-30)){y+=sz+6;t(l,W-X,y,sz,b,'right')}}};
+const txt=(s,sz,b,ind)=>{for(const l of wrap(s,sz||26,b,IW-(ind||0))){y+=(sz||26)+8;t(l,X+(ind||0),y,sz||26,b)}};
+/* başlıq */
+y=24;ctr(String(B.n||'Su Filtrləri').toLocaleUpperCase('az'),40,1);
+if(B.p)ctr('Tel: '+B.p,24);
+if(B.ig)ctr('Instagram: @'+String(B.ig).replace(/^@/,''),24);
+dash('=');
+ctr(String(r.kind||'Qəbz').toLocaleUpperCase('az'),32,1);
+y+=4;kv('№ '+(r.no||''),fmtD(r.date),24);
+dash();
+kv('Müştəri:',r.cust.name);
+if(r.cust.phone)kv('Tel:',r.cust.phone);
+if(r.cust.addr){y+=36;t('Ünvan:',X,y,26);y-=36;fnt(26);const aw=g.measureText('Ünvan: ').width;const ls=wrap(r.cust.addr,26,0,IW-aw);ls.forEach((l,i)=>{if(i===0){y+=36;t(l,W-X,y,26,0,'right')}else{y+=34;t(l,W-X,y,26,0,'right')}})}
+dash();
+for(const[k,v]of r.lines){if(/hissələr/i.test(k)){txt(k+':',24);for(const p of String(v).split(', '))txt('• '+p,26,0,18)}else{txt(k+':',24);txt(v,26,1,18)}}
+dash('=');
+y+=6;kv('CƏMİ',r.amt!=null&&r.amt!==''?money(r.amt):'—',40,1);y+=6;
+dash('=');
+for(const[k,v]of r.pay)kv(k+':',v,24);
+if(r.next){y+=8;g.fillStyle='#111';const h=44;g.fillRect(X-6,y+4,IW+12,h);fnt(26,1);g.fillStyle='#fff';g.textAlign='left';g.fillText('Növbəti servis:',X+6,y+36);g.textAlign='right';g.fillText(fmtD(r.next),W-X-6,y+36);y+=h+4}
+if(r.note){dash();txt('Qeyd: '+r.note,24)}
+dash();
+ctr('TƏŞƏKKÜR EDİRİK!',30,1);ctr('Sağlam su ilə!',24);
+y+=18;/* ştrix-kod */
+{const code=String(r.no||'0')+String(r.cust.name||'');let h=7;const bw=IW*0.7,bx=(W-bw)/2;let x=bx;g.fillStyle=K;
+while(x<bx+bw){h=(h*31+code.charCodeAt(Math.floor(x)%code.length))%997;const w=1+h%4;if(h%3)g.fillRect(x,y,w*2,70);x+=w*2+2+(h%2)*2}
+y+=70;t(String(r.no||''),W/2,y+28,22,0,'center');y+=40}
+ctr('Çap: '+fmtD(today()),20);
+y+=30;
 const o=document.createElement('canvas');o.width=W;o.height=Math.ceil(y);o.getContext('2d').drawImage(cv,0,0);return o}
 async function toPdf(cv){const W=cv.width,H=cv.height,img=new Uint8Array(await(await new Promise(r=>cv.toBlob(r,'image/jpeg',.92))).arrayBuffer());
-const pw=420,ph=+(pw*H/W).toFixed(2),en=new TextEncoder(),parts=[],off=[];let len=0;
+const pw=227,ph=+(pw*H/W).toFixed(2),en=new TextEncoder(),parts=[],off=[];let len=0;
 const add=x=>{const b=typeof x==='string'?en.encode(x):x;parts.push(b);len+=b.length};
 const obj=(n,s)=>{off[n]=len;add(n+' 0 obj\n'+s+'\nendobj\n')};
 add('%PDF-1.4\n');obj(1,'<</Type/Catalog/Pages 2 0 R>>');obj(2,'<</Type/Pages/Kids[3 0 R]/Count 1>>');
